@@ -104,6 +104,14 @@
   - `.venv\\Scripts\\python.exe -c "from gokite import KiteClient; print(...)"` 成功
   - `.venv\\Scripts\\python.exe python\\kitepass_demo.py` 正常运行并提示缺少 `KITE_API_KEY`（预期行为）
 
+#### 9) 明确分工为“链上 / 后端 / 前端(可选)”
+
+- **背景**：原分工按模块写，未显式标注“前端/后端”；但在黑客松 MVP 下，网页前端并非必需。
+- **处理**：更新 `allocation.md`，将三人分工明确为：
+  - 角色 A：链上（合约/多签）
+  - 角色 B：后端（支付执行/AA 集成/链上交互）
+  - 角色 C：前端/体验与可复现（默认做演示整合；如做网页则负责最小 UI）
+
 ---
 
 ### 本次新增/修改的文件清单
