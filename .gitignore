@@ -1,0 +1,16 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+
+# runtime state
+.agentpayguard
+*.log
+
+# editors/OS
+.DS_Store
+Thumbs.db
+
+# python venv
+.venv

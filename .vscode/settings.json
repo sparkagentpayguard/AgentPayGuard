@@ -1,0 +1,5 @@
+{
+  // Ensure the editor/analysis uses the same environment as runtime
+  "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
+}
+

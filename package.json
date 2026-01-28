@@ -1,0 +1,27 @@
+{
+  "name": "agentpayguard",
+  "private": true,
+  "version": "0.1.0",
+  "description": "AgentPayGuard: Kite Payment Track MVP (policy + payment demos)",
+  "type": "module",
+  "scripts": {
+    "demo:pay": "tsx src/demo-pay.ts",
+    "demo:reject": "tsx src/demo-reject.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "ethers": "^6.15.0",
+    "gokite-aa-sdk": "^1.0.14",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "tsx": "^4.20.0",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
+
