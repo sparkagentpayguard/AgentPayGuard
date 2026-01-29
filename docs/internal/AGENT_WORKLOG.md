@@ -485,6 +485,78 @@ cat for_judge.md
 - 让整个团队对"项目完成"有统一的定义
 - 降低最后一刻才发现缺少交付物的风险
 
-**验证**：✅ 三个文件创建/更新成功，内容完整可用
+**验证**：✅ 文件创建成功，内容完整可用
+
+---
+
+### 14) 文档分类与目录重组
+
+**背景**：项目文档数量增多（17 个 .md 文件），根目录显得杂乱。需要按用途分类，便于用户快速找到所需文档，同时为团队成员创建清晰的知识结构。
+
+**分类原则**：
+1. **docs/guides/** - 角色操作指南（使用者立即可用）
+2. **docs/reference/** - 系统设计和参考（了解系统时查阅）
+3. **docs/internal/** - 内部管理（团队协作文档）
+4. **docs/archived/** - 过时文档（历史记录）
+5. **根目录** - 仅保留 README.md（主入口）
+
+**实现步骤**：
+
+1. **创建目录结构**
+   ```
+   docs/
+   ├── guides/         （使用指南）
+   ├── reference/      （参考文档）
+   ├── internal/       （内部管理）
+   ├── archived/       （过时文档）
+   ├── for_judge.md    （评委文档）
+   └── （其他用户文档）
+   ```
+
+2. **文件迁移（使用 git mv 保持历史）**
+   - guides/:
+     - TESTING_GUIDE.md（完整的 5 个测试场景）
+     - ROLE_A_GUIDE.md（多签部署步骤）
+   - reference/:
+     - ARCHITECTURE.md（系统架构）
+     - allocation.md（角色分工）
+     - QUICK_REFERENCE.md（快速参考）
+   - internal/:
+     - AGENT_WORKLOG.md（工作日志）
+     - AGENT_CONSTRAINTS.md（工作约束，含 4b. 实时更新交付清单）
+     - SECURITY.md（安全政策）
+     - FINAL_DELIVERY_CHECKLIST.md（交付清单）
+   - archived/:
+     - DELIVERY_SUMMARY.md
+     - IMPLEMENTATION_SUMMARY.md
+     - ROLE_B_IMPLEMENTATION.md
+     - ROLE_B_INDEX.md
+     - claude_evaluate.md
+     - CONTRIBUTING.md
+   - 根目录保留：
+     - for_judge.md（评委评审用）
+
+3. **更新 README.md**
+   - 新增"文档导航"表格（8 项文档，含描述和用途）
+   - 保留快速开始部分
+   - 使用相对路径链接到分类后的文档
+
+4. **补充约束规则**
+   - 在 AGENT_CONSTRAINTS.md 中添加"4b. 实时更新交付清单"
+   - 确保交付清单始终保持最新（防止过期）
+
+**关键特性**：
+- **可读性提升**：一个表格快速导航到所有重要文档
+- **用途清晰**：表格中明确标注每个文档的用途（📋 评委、🧪 测试、🏗️ 架构等）
+- **迁移无损**：使用 git mv 保持提交历史，便于追溯
+- **根目录清洁**：仅保留 README.md，其他文件都分类到 docs/
+
+**文件变更**：
+- 创建：`docs/guides/`, `docs/reference/`, `docs/internal/`, `docs/archived/` (4 个目录)
+- 移动：17 个 .md 文件（使用 git mv，保持 Git 历史）
+- 修改：`README.md` (新增文档导航表)
+- 修改：`AGENT_CONSTRAINTS.md` (新增约束 4b)
+
+**验证**：✅ 所有文件成功迁移，文件夹结构清晰
 
 

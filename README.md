@@ -9,6 +9,26 @@
 
 ---
 
+## 文档导航
+
+| 文档 | 用途 |
+|------|------|
+| [for_judge.md](docs/for_judge.md) | 📋 **评委评审用** - 赛道要求对照表 + 证据链接 |
+| **使用指南** |
+| [TESTING_GUIDE.md](docs/guides/TESTING_GUIDE.md) | 🧪 完整的测试流程（5 个场景，干运行→链上） |
+| [ROLE_A_GUIDE.md](docs/guides/ROLE_A_GUIDE.md) | 🔗 多签部署指南（Gnosis Safe + TokenGuard） |
+| **参考文档** |
+| [ARCHITECTURE.md](docs/reference/ARCHITECTURE.md) | 🏗️ 系统架构与设计决策 |
+| [allocation.md](docs/reference/allocation.md) | 👥 角色分工与交付物清单 |
+| [QUICK_REFERENCE.md](docs/reference/QUICK_REFERENCE.md) | ⚡ 快速参考（命令、地址、Tx Hash）|
+| **内部管理** |
+| [FINAL_DELIVERY_CHECKLIST.md](docs/internal/FINAL_DELIVERY_CHECKLIST.md) | ✅ 最终交付清单（角色 A/B/C/D） |
+| [AGENT_WORKLOG.md](docs/internal/AGENT_WORKLOG.md) | 📝 工作日志（Phase 1-14 历史） |
+| [AGENT_CONSTRAINTS.md](docs/internal/AGENT_CONSTRAINTS.md) | 📋 Agent 工作约束（16 条规则） |
+| [SECURITY.md](docs/internal/SECURITY.md) | 🔐 安全政策（.env 保护、代码审查） |
+
+---
+
 ## 环境要求
 
 - Node.js >= 18（建议 20+）
