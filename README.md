@@ -19,13 +19,14 @@
 | [ROLE_A_GUIDE.md](docs/guides/ROLE_A_GUIDE.md) | 🔗 多签部署指南（Gnosis Safe + TokenGuard） |
 | [ROLE_C_GUIDE.md](docs/guides/ROLE_C_GUIDE.md) | 🎨 **前端开发指南**（Web UI + 可视化 + 科技感设计） |
 | [ROLE_D_GUIDE.md](docs/guides/ROLE_D_GUIDE.md) | 🎥 PPT 与视频制作指南（支持 Role B 演讲） |
+| [FRONTEND_DESIGN_REFERENCE.md](docs/guides/FRONTEND_DESIGN_REFERENCE.md) | 🌈 **Web3 前端设计参考**（黑客松风格分析 + 配色/动画建议） |
 | **参考文档** |
 | [ARCHITECTURE.md](docs/reference/ARCHITECTURE.md) | 🏗️ 系统架构与设计决策 |
 | [allocation.md](docs/reference/allocation.md) | 👥 角色分工与交付物清单 |
 | [QUICK_REFERENCE.md](docs/reference/QUICK_REFERENCE.md) | ⚡ 快速参考（命令、地址、Tx Hash）|
 | **内部管理** |
 | [FINAL_DELIVERY_CHECKLIST.md](docs/internal/FINAL_DELIVERY_CHECKLIST.md) | ✅ 最终交付清单（角色 A/B/C/D） |
-| [AGENT_WORKLOG.md](docs/internal/AGENT_WORKLOG.md) | 📝 工作日志（Phase 1-14 历史） |
+| [AGENT_WORKLOG.md](docs/internal/AGENT_WORKLOG.md) | 📝 工作日志（Phase 1-16 历史） |
 | [AGENT_CONSTRAINTS.md](docs/internal/AGENT_CONSTRAINTS.md) | 📋 Agent 工作约束（16 条规则） |
 | [SECURITY.md](docs/internal/SECURITY.md) | 🔐 安全政策（.env 保护、代码审查） |
 
