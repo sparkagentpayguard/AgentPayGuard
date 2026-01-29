@@ -6,6 +6,7 @@
 - **demo:reject**：故意触发策略（白名单/限额）并拒绝
 
 > 说明：为了避免误转账，默认不发链上交易。你需要显式设置 `EXECUTE_ONCHAIN=1` 才会真的发送。
+
 参赛链接：https://github.com/CasualHackathon/SPARK-AI-Hackathon
 ---
 
