@@ -60,7 +60,7 @@ git --version
 - 缺点：文档可能较少
 - 参考：查询 Kite 官方文档
 
-**建议**：从 Gnosis Safe 或 Ash Wallet 开始，现有文档最完整。
+**建议**：从 Gnosis Safe  开始，KITE官方推荐
 
 ---
 
