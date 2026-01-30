@@ -41,7 +41,12 @@ export const EnvSchema = z.object({
   PAYMASTER_ADDRESS: z.string().optional(),
 
   // Debug
-  PROBE_KITE_AA: boolFromEnv(false)
+  PROBE_KITE_AA: boolFromEnv(false),
+
+  // AI Agent Integration (optional)
+  OPENAI_API_KEY: z.string().optional(),
+  AI_MODEL: z.string().default('gpt-4o-mini'),
+  ENABLE_AI_INTENT: boolFromEnv(false)
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -65,4 +70,3 @@ export function loadEnv(): Env {
 
   return parsed.data;
 }
-
