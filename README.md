@@ -1,9 +1,12 @@
-# AgentPayGuard（从零脚手架）
+# AgentPayGuard：AI Agent 智能支付系统
 
-本仓库提供一个**可复现的最小 MVP**，用于 Kite Payment Track：
+本仓库提供一个**可复现的 AI Agent 支付系统**，用于 Kite Payment Track：
 
-- **demo:pay**：通过“策略校验 → 稳定币支付（ERC-20 转账）”跑通一笔链上支付（测试网）
+- **🤖 AI Agent 核心**：支持自然语言支付请求解析和智能风险评估
+- **demo:ai-agent**：通过自然语言指令执行支付，支持AI意图解析和风险评估
+- **demo:pay**：通过"策略校验 → 稳定币支付（ERC-20 转账）"跑通一笔链上支付（测试网）
 - **demo:reject**：故意触发策略（白名单/限额）并拒绝
+- **demo:freeze**：验证链上多签冻结风控机制
 
 > 说明：为了避免误转账，默认不发链上交易。你需要显式设置 `EXECUTE_ONCHAIN=1` 才会真的发送。
 
@@ -16,6 +19,7 @@
 |------|------|
 | [for_judge.md](docs/for_judge.md) | 📋 **评委评审用** - 赛道要求对照表 + 证据链接 |
 | **使用指南** |
+| [AI_AGENT_GUIDE.md](docs/guides/AI_AGENT_GUIDE.md) | 🤖 **AI Agent 开发指南**（自然语言解析 + 风险评估 + API参考） |
 | [TESTING_GUIDE.md](docs/guides/TESTING_GUIDE.md) | 🧪 Role B 测试与演讲指南（5 个场景 + 演讲脚本） |
 | [ROLE_A_GUIDE.md](docs/guides/ROLE_A_GUIDE.md) | 🔗 多签部署指南（Gnosis Safe + TokenGuard） |
 | [ROLE_C_GUIDE.md](docs/guides/ROLE_C_GUIDE.md) | 🎨 **前端开发指南**（Web UI + 可视化 + 科技感设计） |
@@ -28,7 +32,7 @@
 | [resources/](docs/resources/) | 📚 **原始资源**（赛道规则、官方链接等） |
 | **内部管理** |
 | [FINAL_DELIVERY_CHECKLIST.md](docs/internal/FINAL_DELIVERY_CHECKLIST.md) | ✅ 最终交付清单（角色 A/B/C/D） |
-| [AGENT_WORKLOG.md](docs/internal/AGENT_WORKLOG.md) | 📝 工作日志（Phase 1-16 历史） |
+| [AGENT_WORKLOG.md](docs/internal/AGENT_WORKLOG.md) | 📝 工作日志（Phase 1-20 历史，含AI Agent升级） |
 | [AGENT_CONSTRAINTS.md](docs/internal/AGENT_CONSTRAINTS.md) | 📋 Agent 工作约束（16 条规则） |
 | [SECURITY.md](docs/internal/SECURITY.md) | 🔐 安全政策（.env 保护、代码审查） |
 
@@ -38,18 +42,19 @@
 
 - Node.js >= 18（建议 20+）
 - pnpm
+- （可选）OpenAI API Key（用于AI意图解析和风险评估）
 
 ---
 
 ## 快速开始
 
-1) 安装依赖
+### 1) 安装依赖
 
 ```bash
 pnpm i
 ```
 
-2) 配置环境变量
+### 2) 配置环境变量
 
 复制 `.env.example` 为 `.env`，填好以下关键项：
 
@@ -57,23 +62,59 @@ pnpm i
 - `RPC_URL`：默认已填 Kite Testnet RPC：`https://rpc-testnet.gokite.ai/`
 - `SETTLEMENT_TOKEN_ADDRESS`：Kite 测试网稳定币（或结算 token）合约地址（从官方文档获取）
 - `RECIPIENT`：收款地址
+- （可选）`OPENAI_API_KEY`：OpenAI API密钥，用于AI意图解析和风险评估
 
-3) 运行 Demo（默认 dry-run）
+### 3) 运行 AI Agent 演示（自然语言接口）
+
+```bash
+# 使用自然语言指令执行支付
+pnpm demo:ai-agent "Pay 50 USDC to 0xd2d45ef2f2ddaffc8c8bc03cedc4f55fb9e97e2b for server hosting"
+
+# 如果没有OPENAI_API_KEY，系统会自动使用回退解析器
+```
+
+### 4) 运行传统演示（默认 dry-run）
 
 ```bash
 pnpm demo:pay
 pnpm demo:reject
+pnpm demo:freeze
 ```
 
-4) 真正发送链上交易（测试网）
+### 5) 真正发送链上交易（测试网）
 
 把 `.env` 里的 `EXECUTE_ONCHAIN=1` 打开，然后再次运行：
 
 ```bash
 pnpm demo:pay
+# 或使用AI Agent
+pnpm demo:ai-agent "Pay 10 USDC to 0xd2d45ef2f2ddaffc8c8bc03cedc4f55fb9e97e2b"
 ```
 
 输出里会打印 tx hash（把它填到 `for_judge.md` 的占位里）。
+
+---
+
+## AI Agent 功能特性
+
+### 🤖 自然语言支付解析
+- 从自然语言指令中提取收款地址、金额、币种、支付目的
+- 示例：`"Pay 100 USDC to 0x... for server hosting"`
+
+### 🧠 智能风险评估
+- AI评估支付风险（0-100分数，低/中/高风险等级）
+- 基于支付目的、金额、历史模式的风险分析
+- 提供风险理由和改进建议
+
+### 🔒 AI增强策略
+- 传统规则（白名单、限额） + AI风险控制的组合
+- 可配置AI风险阈值（如拒绝高风险支付）
+- 支持AI评估失败时的降级处理
+
+### 🚀 端到端AI工作流
+```
+自然语言请求 → AI意图解析 → 风险评估 → 策略检查 → 链上执行
+```
 
 ---
 
@@ -89,19 +130,24 @@ pnpm demo:pay
 
 ```bash
 pnpm demo:pay
+# 或使用AI Agent
+pnpm demo:ai-agent "Pay 50 USDC to 0x... via account abstraction"
 ```
 
 输出会包含 `userOpHash` 与最终状态（用于展示 AA 路径的执行结果）。
 
 ---
 
-## 策略说明（最小可复现）
+## 策略说明（AI增强版）
 
-当前实现的最小策略集：
+当前实现的策略集：
 
 - **收款白名单**：`ALLOWLIST`（逗号分隔地址）
 - **单笔上限**：`MAX_AMOUNT`
 - **周期限额（可选）**：`DAILY_LIMIT`（按本地 `STATE_PATH` 记录当天累计）
+- **AI风险评估**：`maxRiskScore`（最大风险分数，默认70）
+- **AI自动拒绝**：`autoRejectRiskLevels`（自动拒绝的风险等级，默认["high"]）
+- **链上冻结检查**：实时检查多签冻结状态（强依赖模式）
 
 ---
 
@@ -116,7 +162,7 @@ pnpm demo:pay
 
 ## 可选：KitePass / Agent 身份（Python 侧最小演示）
 
-Kite AIR 的“Agent 身份”在当前文档里主要以 **KitePass API Key** 的形式交付（`api_key_...`）。本仓库提供一个最小 Python 脚本，方便你拿来录屏/截图证明“身份已接入”：
+Kite AIR 的"Agent 身份"在当前文档里主要以 **KitePass API Key** 的形式交付（`api_key_...`）。本仓库提供一个最小 Python 脚本，方便你拿来录屏/截图证明"身份已接入"：
 
 ```bash
 python -m pip install -r python/requirements.txt
@@ -131,5 +177,26 @@ $env:KITE_PAYLOAD_JSON='{"foo":"bar"}'
 python python/kitepass_demo.py
 ```
 
-> 说明：支付赛道的“链上稳定币转账”仍以 `pnpm demo:pay` 为主；Python 部分是为了更容易展示/证明“Agent 身份（KitePass）”已接入。
+> 说明：支付赛道的"链上稳定币转账"仍以 `pnpm demo:pay` 和 `pnpm demo:ai-agent` 为主；Python 部分是为了更容易展示/证明"Agent 身份（KitePass）"已接入。
 
+---
+
+## 项目亮点（面向评委）
+
+1. **🤖 真正的AI Agent**：不仅仅是自动化脚本，而是能理解自然语言、进行风险评估的智能系统
+2. **🔒 多层安全防护**：传统规则 + AI风险评估 + 链上冻结检查
+3. **🚀 端到端工作流**：从自然语言请求到链上执行的完整闭环
+4. **📊 可验证的AI决策**：AI风险评估透明可解释，提供风险理由和建议
+5. **🔄 优雅降级**：无AI API时自动使用回退解析器，保证系统可用性
+
+---
+
+## 最新更新（2026-01-31）
+
+✅ **AI Agent升级完成**：项目已从"安全支付系统"升级为"智能AI Agent支付系统"
+- 新增：`src/lib/ai-intent.ts` - AI意图解析和风险评估模块
+- 新增：`src/demo-ai-agent.ts` - AI Agent演示脚本
+- 增强：`src/lib/policy.ts` - AI增强策略引擎
+- 更新：完整AI工作流，支持自然语言接口
+
+**Git提交**：`39233da` - "feat: Add AI Agent capabilities to AgentPayGuard"
