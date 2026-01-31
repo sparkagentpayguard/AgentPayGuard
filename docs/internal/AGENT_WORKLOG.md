@@ -913,7 +913,7 @@ pnpm demo:freeze
 
 **项目已从"安全支付系统"升级为"智能AI Agent支付系统"。** 🚀🤖
 
-### Phase 18: 支持免费AI API提供商（2026-01-31）
+### Phase 21: 支持免费AI API提供商（2026-01-31）
 
 **背景**：
 - 用户询问"OPENAI_API_KEY可以用deepseek的吗"，需要支持免费API提供商
