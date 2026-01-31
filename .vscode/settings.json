@@ -1,5 +1,10 @@
 {
   // Ensure the editor/analysis uses the same environment as runtime
-  "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
+  "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+  // 让 .env 等文件被识别为 dotenv 语法（高亮、补全）
+  "files.associations": {
+    ".env": "dotenv",
+    ".env.*": "dotenv"
+  }
 }
 
