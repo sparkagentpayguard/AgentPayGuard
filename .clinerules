@@ -52,6 +52,11 @@
 - ✗ 不能有"WIP"或"temp"这样的模糊 commit
 - 理由：便于回溯和代码审查
 
+### 5b. 每次修改后自动 push
+- ✓ **每次 git commit 完成后，立即执行 `git push`**
+- ✓ 确保远程仓库与本地同步，便于协作与备份
+- ✗ 不得只 commit 不 push（除非网络不可用或用户明确要求暂不推送）
+
 ### 6. 任务追踪
 - ✓ 复杂的多步骤工作（3+ 步）应使用 `manage_todo_list` 工具
 - ✓ 显式标记 TODO 状态：not-started → in-progress → completed

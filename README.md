@@ -34,7 +34,8 @@
 | [resources/](docs/resources/) | 📚 **原始资源**（赛道规则、官方链接等） |
 | **内部管理** |
 | [FINAL_DELIVERY_CHECKLIST.md](docs/internal/FINAL_DELIVERY_CHECKLIST.md) | ✅ 最终交付清单（角色 A/B/C/D） |
-| [AGENT_WORKLOG.md](docs/internal/AGENT_WORKLOG.md) | 📝 工作日志（Phase 1-20 历史，含AI Agent升级） |
+| [AGENT_WORKLOG.md](docs/internal/AGENT_WORKLOG.md) | 📝 工作日志（Phase 摘要） |
+| [PM_AND_ROLE_B_QUICKREF.md](docs/internal/PM_AND_ROLE_B_QUICKREF.md) | 📋 PM / 角色 B 快速参考（检查清单 + 文档入口） |
 | [AGENT_CONSTRAINTS.md](docs/internal/AGENT_CONSTRAINTS.md) | 📋 Agent 工作约束（16 条规则） |
 | [SECURITY.md](docs/internal/SECURITY.md) | 🔐 安全政策（.env 保护、代码审查） |
 
