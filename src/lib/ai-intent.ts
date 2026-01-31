@@ -207,17 +207,30 @@ Example inputs:
     console.log('[AI] Using fallback parser');
     
     // Very basic parsing - in real implementation would be more sophisticated
-    const amountMatch = userMessage.match(/(\d+(\.\d+)?)\s*(USDC|ETH|USD|\$)/i);
+    const amountMatch = userMessage.match(/(\d+(\.\d+)?)\s*(USDC|USDT|ETH|USD|\$)/i);
     const addressMatch = userMessage.match(/0x[a-fA-F0-9]{40}/);
     
     const defaultAddress = this.env.RECIPIENT || 'unknown';
     const defaultAmount = this.env.AMOUNT || '0.001';
     
+    // Normalize currency
+    let currency = 'USDC';
+    if (amountMatch && amountMatch[3]) {
+      const matched = amountMatch[3].toUpperCase();
+      if (matched === 'USD' || matched === '$') {
+        currency = 'USDC';
+      } else if (matched === 'USDT') {
+        currency = 'USDT';
+      } else {
+        currency = matched;
+      }
+    }
+    
     return {
       recipient: addressMatch ? addressMatch[0] : defaultAddress,
-      amount: amountMatch ? `${amountMatch[1]} ${amountMatch[3]?.toUpperCase() || 'USDC'}` : `${defaultAmount} USDC`,
+      amount: amountMatch ? `${amountMatch[1]} ${currency}` : `${defaultAmount} USDC`,
       amountNumber: amountMatch ? parseFloat(amountMatch[1]) : parseFloat(defaultAmount),
-      currency: amountMatch ? (amountMatch[3]?.toUpperCase() === 'USD' ? 'USDC' : amountMatch[3]?.toUpperCase()) : 'USDC',
+      currency,
       purpose: extractPurpose(userMessage),
       confidence: 0.5,
       riskLevel: 'medium',
