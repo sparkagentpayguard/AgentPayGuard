@@ -30,10 +30,10 @@
 | **编译验证** | `pnpm typecheck` 返回 0 errors | ✅ 完成 | - |
 | **配置模板** | `.env.example` 包含所有必需变量 | ✅ 完成 | - |
 | **测试指南** | [TESTING_GUIDE.md](TESTING_GUIDE.md) 完整 | ✅ 完成 | - |
-| **EOA 支付** | `PAYMENT_MODE=eoa EXECUTE_ONCHAIN=1 pnpm demo:pay` | 🟡 **待执行** | 2026-01-31 |
-| **AA 支付** | `PAYMENT_MODE=aa EXECUTE_ONCHAIN=1 pnpm demo:pay` | 🟡 **待执行** | 2026-01-31 |
-| **EOA Tx Hash** | 从链上执行获得，格式：`0x...` | 🔴 **缺失** | 2026-01-31 |
-| **AA Tx Hash** | UserOp + Settlement Tx，格式：`0x...` | 🔴 **缺失** | 2026-01-31 |
+| **EOA 支付** | `PAYMENT_MODE=eoa EXECUTE_ONCHAIN=1 pnpm demo:pay` | ✅ 完成 | - |
+| **AA 支付** | `PAYMENT_MODE=aa EXECUTE_ONCHAIN=1 pnpm demo:pay` | ✅ 完成 | - |
+| **EOA Tx Hash** | 从链上执行获得，格式：`0x...` | ✅ `0x8ec4f4a44fb7ef878db9fc549ff81294982224648f3cc21ecad04764dcbd75db` | - |
+| **AA Tx Hash** | UserOp + Settlement Tx，格式：`0x...` | ✅ `0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313` | - |
 
 ### 完成标准
 
@@ -46,11 +46,11 @@
 ### 交付物检查清单
 
 ```bash
-# B 需要提供给 C
-- [ ] EOA Tx Hash: 0x_____________________
-- [ ] AA Tx Hash (Settlement): 0x_____________________
-- [ ] Kite 浏览器链接（EOA）: https://testnet.kite.ai/tx/0x...
-- [ ] Kite 浏览器链接（AA）: https://testnet.kite.ai/tx/0x...
+# B 需要提供给 C（已交付，C 已填入 for_judge.md）
+- [x] EOA Tx Hash: 0x8ec4f4a44fb7ef878db9fc549ff81294982224648f3cc21ecad04764dcbd75db
+- [x] AA Tx Hash (Settlement): 0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313
+- [x] Kite 浏览器链接（EOA）: https://testnet.kitescan.ai/tx/0x8ec4f4a44fb7ef878db9fc549ff81294982224648f3cc21ecad04764dcbd75db
+- [x] Kite 浏览器链接（AA）: https://testnet.kitescan.ai/tx/0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313
 ```
 
 ---
@@ -102,8 +102,8 @@
 |------|------|------|---------|
 | **依赖项** | 等待 B 的 Tx Hash | 🔴 **阻塞** | - |
 | **依赖项** | 等待 A 的 冻结 Tx Hash | 🔴 **阻塞** | - |
-| **for_judge.md 行1** | 链上支付 + Tx Hash（来自 B） | 🔴 **缺失** | 2026-02-01 |
-| **for_judge.md 行2** | Agent 身份 + AA 集成说明 + Tx Hash（来自 B） | 🔴 **缺失** | 2026-02-01 |
+| **for_judge.md 行1** | 链上支付 + Tx Hash（来自 B） | ✅ 已填 EOA/AA Tx Hash 与 Kite 链接 | - |
+| **for_judge.md 行2** | Agent 身份 + AA 集成说明 + Tx Hash（来自 B） | ✅ 已填 AA Tx 与 Kite 链接 | - |
 | **for_judge.md 行3** | 权限控制 + 拒绝案例 + 冻结 Tx Hash（来自 A） | 🔴 **缺失** | 2026-02-01 |
 | **for_judge.md 行4** | 可复现性 + 命令和源码 | 🟡 **部分完成** | 2026-02-01 |
 | **演示脚本** | 录制/截图 `pnpm demo:pay` 和 `pnpm demo:reject` | 🔴 **待完成** | 2026-02-02 |
@@ -111,11 +111,11 @@
 
 ### 完成标准（C 的检查清单）
 
-- [ ] 收到 B 的 EOA Tx Hash 和 AA Tx Hash
+- [x] 收到 B 的 EOA Tx Hash 和 AA Tx Hash（已填入 for_judge.md）
 - [ ] 收到 A 的冻结 Tx Hash 和多签地址
 - [ ] `for_judge.md` 表格 4 行全部填满
-  - [ ] 第 1 行（链上支付）：包含 B 的 Tx Hash
-  - [ ] 第 2 行（Agent 身份）：包含 B 的 AA Tx Hash
+  - [x] 第 1 行（链上支付）：包含 B 的 EOA/AA Tx Hash 与 Kite 链接
+  - [x] 第 2 行（Agent 身份）：包含 B 的 AA Tx 与 Kite 链接
   - [ ] 第 3 行（权限控制）：包含 A 的冻结 Tx Hash
   - [ ] 第 4 行（可复现性）：包含命令和源码路径
 - [ ] 所有 Tx Hash 和地址都是真实的（可在浏览器验证）
@@ -134,8 +134,8 @@ C 需要编制一份证据索引供 D 使用，格式如下：
 
 | 要求 | 类别 | 证据 | Tx/地址 | Kite 链接 |
 |------|------|------|--------|---------|
-| 链上支付 | ERC-20 转账 | 交易执行 | 0xB_PAYMENT_EOA | https://testnet.kite.ai/tx/0x... |
-| Agent 身份 | ERC-4337 AA | UserOp 执行 | 0xB_PAYMENT_AA | https://testnet.kite.ai/tx/0x... |
+| 链上支付 | ERC-20 转账（EOA） | 交易执行 | 0x8ec4f4a44fb7ef878db9fc549ff81294982224648f3cc21ecad04764dcbd75db | https://testnet.kitescan.ai/tx/0x8ec4f4a44fb7ef878db9fc549ff81294982224648f3cc21ecad04764dcbd75db |
+| Agent 身份 | ERC-4337 AA | UserOp 执行 | 0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313 | https://testnet.kitescan.ai/tx/0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313 |
 | 权限控制 | 多签冻结 | 冻结交易 | 0xA_FREEZE | https://testnet.kite.ai/tx/0x... |
 | 可复现性 | 源代码 | src/lib/kite-aa.ts | - | [GitHub Link] |
 

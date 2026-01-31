@@ -226,6 +226,17 @@ pnpm demo:ai-agent "Pay 50 USDC to 0x... via account abstraction"
 
 输出会包含 `userOpHash` 与最终状态（用于展示 AA 路径的执行结果）。
 
+### 如何与 AA 账户来回转账
+
+AA 账户地址由你的 **Owner EOA**（`.env` 里 `PRIVATE_KEY` 对应的地址）推导，跑一次 `PAYMENT_MODE=aa pnpm demo:pay` 会在日志里打印 `[AA] AA Account Address: 0x...`，即为你的 AA 账户。
+
+| 方向 | 做法 |
+|------|------|
+| **往 AA 转测试 KITE / USDT** | 用 **EOA 模式**：`.env` 里 `PAYMENT_MODE=eoa`，`RECIPIENT` 和 `ALLOWLIST` 都设为 AA 账户地址，`EXECUTE_ONCHAIN=1`，执行 `pnpm demo:pay`。钱从你的 EOA 转到 AA 账户。 |
+| **从 AA 转回 EOA** | 用 **AA 模式**：`.env` 里 `PAYMENT_MODE=aa`，`RECIPIENT` 设为你的 **Owner EOA 地址**，`ALLOWLIST` 里包含该 EOA 地址，`EXECUTE_ONCHAIN=1`，执行 `pnpm demo:pay`。钱从 AA 账户转回你的 EOA。 |
+
+AA 账户需先有足够 **KITE（gas）** 和 **稳定币** 才能成功发起 AA 转账；若之前 AA 交易 revert，多半是 AA 账户余额不足，按上表先用 EOA 给 AA 充值再试。
+
 ---
 
 ## 策略说明（AI增强版）

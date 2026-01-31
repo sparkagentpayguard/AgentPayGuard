@@ -165,11 +165,11 @@ Role A 需要部署多签并执行冻结，提供：
 
 ## Role B (支付)
 
-- [ ] EOA Tx Hash: _________________
-- [ ] EOA 浏览器链接: _________________
+- [x] EOA Tx Hash: 0x8ec4f4a44fb7ef878db9fc549ff81294982224648f3cc21ecad04764dcbd75db
+- [x] EOA 浏览器链接: https://testnet.kitescan.ai/tx/0x8ec4f4a44fb7ef878db9fc549ff81294982224648f3cc21ecad04764dcbd75db
 - [ ] EOA 截图: _________________
-- [ ] AA Settlement Tx Hash: _________________
-- [ ] AA 浏览器链接: _________________
+- [x] AA Settlement Tx Hash: 0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313
+- [x] AA 浏览器链接: https://testnet.kitescan.ai/tx/0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313
 - [ ] AA 截图: _________________
 
 ## Role A (多签)

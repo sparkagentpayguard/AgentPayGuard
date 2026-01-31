@@ -15,8 +15,8 @@
 
 ## 角色 B 检查清单
 
-- [ ] EOA Tx Hash 已产出并交付 C
-- [ ] AA Tx Hash 已产出并交付 C
+- [x] EOA Tx Hash 已产出并交付 C（0x8ec4...75db，已填入 for_judge.md）
+- [x] AA Tx Hash 已产出并交付 C（0x3a58...1313，已填入 for_judge.md）
 - [ ] 环境变量与 TESTING_GUIDE / .env.example 一致
 - [ ] 若启用冻结检查，`FREEZE_CONTRACT_ADDRESS` 与 A 交付一致
 - [ ] AGENT_WORKLOG 已更新（完成 EOA/AA 后追加 Phase）

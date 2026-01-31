@@ -10,10 +10,17 @@
 
 > 说明：下表是"是否进入评审"的硬门槛对照。占位信息（如 tx hash）请在提交前替换为真实数据。
 
+**交付给 Role C（Tx 证据，来自 B）**  
+- **EOA Tx Hash**：`0x8ec4f4a44fb7ef878db9fc549ff81294982224648f3cc21ecad04764dcbd75db`  
+- **EOA Kite 链接**：https://testnet.kitescan.ai/tx/0x8ec4f4a44fb7ef878db9fc549ff81294982224648f3cc21ecad04764dcbd75db  
+- **AA Tx Hash**：`0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313`  
+- **AA Kite 链接**：https://testnet.kitescan.ai/tx/0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313  
+- **AA UserOp Hash**（可选）：`0x423936cb87ad9946e28f5d06d8ff736735ca7bb43ed7861a8f632919157afce3`
+
 | 赛道要求 | 本项目如何满足 | 证据/位置 |
 | --- | --- | --- |
-| 链上支付 | 完成 1 笔测试网稳定币转账（由 Agent 触发） | **Tx Hash**：`0x5a8c9e2d3b1f4a6c8e2d9b1c3e5f7a9c1b3d5e7f9a1b3c5d7e9f1a3b5c7d9e1f` |
-| Agent 身份 | 使用 Kite 的 Agent/Passport（或官方身份体系）生成/绑定 Agent 身份 | 日志/截图：`docs/` 或演示视频 |
+| 链上支付 | 完成 1 笔测试网稳定币转账（由 Agent 触发） | **EOA Tx Hash**：`0x8ec4f4a44fb7ef878db9fc549ff81294982224648f3cc21ecad04764dcbd75db`；**AA Tx Hash**：`0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313`；Kite 链接见下方「交付给 Role C」 |
+| Agent 身份 | 使用 Kite 的 Agent/Passport（或官方身份体系）生成/绑定 Agent 身份 | AA 支付（ERC-4337）UserOp 已执行；AA Tx：`https://testnet.kitescan.ai/tx/0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313` |
 | 权限控制 | 至少 1 条可验证的支付规则（如白名单/限额/有效期）在支付前被强制校验 + **实时链上冻结检查（强依赖模式）** | `Policy` 配置 + 拒绝案例 + 多签冻结 Tx: `https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c` |
 | 可复现性 | 提供完整运行说明，一键跑通 "创建 Agent → 发起支付 → 成功到账/被拒绝" | `README.md` / 本文"运行与复现" |
 
@@ -48,7 +55,7 @@ AI Agent 一旦开始"真花钱"，系统立刻出现三个现实问题：
 | Agent 身份系统（Agent / Passport） | 创建/加载 Agent 身份，并把支付请求与身份绑定，便于追溯与授权证明 | 按官方文档集成（提交时附截图/日志） |
 | 账户抽象（AA SDK） | 为 Agent 创建/加载智能账户，让权限/执行更适合自动化场景 | `https://docs.gokite.ai/kite-chain/5-advanced/account-abstraction-sdk` |
 | 多签钱包（Multisig） | 自研 SimpleMultiSig（2/3 多签，OpenZeppelin v5）作为安全阀：冻结/解冻/策略更新等敏感操作由多签控制 | 多签地址: `0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA` + 冻结合约: `0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719` + 冻结 Tx: `https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c` |
-| 稳定币支付（Stablecoin Payment） | 执行 1 笔稳定币链上转账（测试网/真实网），并展示到账 | 按官方文档集成（提交时附 tx hash） |
+| 稳定币支付（Stablecoin Payment） | 执行 1 笔稳定币链上转账（测试网/真实网），并展示到账 | EOA Tx：`https://testnet.kitescan.ai/tx/0x8ec4f4a44fb7ef878db9fc549ff81294982224648f3cc21ecad04764dcbd75db`；AA Tx：`https://testnet.kitescan.ai/tx/0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313` |
 
 ---
 
