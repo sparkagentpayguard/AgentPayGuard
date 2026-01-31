@@ -106,6 +106,130 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (path === '/api/ai-pay' && req.method === 'POST') {
+    try {
+      const { ethers } = await import('ethers');
+      const { loadEnv } = await import('./lib/config.js');
+      const { AIIntentParser } = await import('./lib/ai-intent.js');
+      const { parseAllowlist, evaluatePolicyWithAI, getAIEnhancedPolicy, prepareAmountForEvaluation } = await import('./lib/policy.js');
+      const { getTokenDecimals } = await import('./lib/erc20.js');
+      const { readSpentToday, addSpentToday } = await import('./lib/state.js');
+      const { runPay } = await import('./lib/run-pay.js');
+      
+      const body = await parseBody(req);
+      const request = typeof body.request === 'string' ? body.request : '';
+      const executeOnchain = body.executeOnchain === true || body.executeOnchain === 'true' || body.executeOnchain === '1';
+      
+      if (!request.trim()) {
+        send(res, 400, { ok: false, error: 'missing_request', message: 'Natural language request is required' });
+        return;
+      }
+      
+      const env = loadEnv();
+      const provider = new ethers.JsonRpcProvider(env.RPC_URL, env.CHAIN_ID);
+      const aiParser = new AIIntentParser();
+      
+      if (!aiParser.isEnabled()) {
+        send(res, 400, { ok: false, error: 'ai_disabled', message: 'AI features disabled. Set ENABLE_AI_INTENT=1 and configure API key.' });
+        return;
+      }
+      
+      // Parse intent
+      const intent = await aiParser.parsePaymentIntent(request);
+      
+      if (!intent.parsedSuccessfully) {
+        send(res, 400, { ok: false, error: 'parse_failed', message: 'Failed to parse payment intent', intent });
+        return;
+      }
+      
+      // Determine recipient
+      const finalRecipient = intent.recipient !== 'unknown' ? intent.recipient : env.RECIPIENT;
+      if (!finalRecipient || finalRecipient === 'unknown') {
+        send(res, 400, { ok: false, error: 'no_recipient', message: 'No recipient address specified or parsed', intent });
+        return;
+      }
+      
+      // Get token decimals and convert amount
+      const tokenDecimals = env.TOKEN_DECIMALS ?? (await getTokenDecimals(provider, env.SETTLEMENT_TOKEN_ADDRESS));
+      const amountInTokenUnits = prepareAmountForEvaluation(intent.amountNumber, intent.currency, tokenDecimals);
+      
+      // Prepare policy
+      const basePolicy = {
+        allowlist: (() => { const a = parseAllowlist(env.ALLOWLIST || ''); return a.length ? a : undefined; })(),
+        maxAmount: env.MAX_AMOUNT ? ethers.parseUnits(env.MAX_AMOUNT, tokenDecimals) : undefined,
+        dailyLimit: env.DAILY_LIMIT ? ethers.parseUnits(env.DAILY_LIMIT, tokenDecimals) : undefined
+      };
+      const enhancedPolicy = getAIEnhancedPolicy(basePolicy);
+      const spentToday = await readSpentToday(env.STATE_PATH);
+      const FREEZE_CONTRACT = '0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719';
+      
+      // Evaluate policy with AI
+      const decision = await evaluatePolicyWithAI({
+        policy: enhancedPolicy,
+        recipient: finalRecipient,
+        amount: amountInTokenUnits,
+        spentToday,
+        provider,
+        freezeContractAddress: FREEZE_CONTRACT,
+        naturalLanguageRequest: request,
+        paymentIntent: intent,
+        aiParser,
+        context: { historicalPayments: [], walletBalance: 10000 }
+      });
+      
+      // Return result with intent, risk, and policy decision
+      if (!decision.baseDecision.ok) {
+        send(res, 200, {
+          ok: false,
+          intent,
+          risk: decision.aiAssessment,
+          policy: decision.baseDecision
+        });
+        return;
+      }
+      
+      // If approved and executeOnchain, run payment
+      if (executeOnchain) {
+        const payResult = await runPay({
+          recipient: finalRecipient,
+          amount: intent.amount.split(' ')[0], // Extract numeric part
+          paymentMode: env.PAYMENT_MODE as 'eoa' | 'aa',
+          executeOnchain: true
+        });
+        
+        if (payResult.ok) {
+          await addSpentToday(env.STATE_PATH, amountInTokenUnits);
+          send(res, 200, {
+            ok: true,
+            intent,
+            risk: decision.aiAssessment,
+            policy: decision.baseDecision,
+            txHash: payResult.txHash,
+            userOpHash: payResult.userOpHash
+          });
+        } else {
+          send(res, 400, {
+            ok: false,
+            intent,
+            risk: decision.aiAssessment,
+            policy: payResult
+          });
+        }
+      } else {
+        // Dry-run: return approval without executing
+        send(res, 200, {
+          ok: true,
+          intent,
+          risk: decision.aiAssessment,
+          policy: decision.baseDecision
+        });
+      }
+    } catch (err) {
+      send(res, 500, { ok: false, error: 'server_error', message: err instanceof Error ? err.message : 'AI payment failed' });
+    }
+    return;
+  }
+
   if (path === '/api/health' && req.method === 'GET') {
     send(res, 200, { status: 'ok', service: 'AgentPayGuard API' });
     return;
@@ -122,6 +246,7 @@ const server = http.createServer(async (req, res) => {
   <li><a href="/api/health">GET /api/health</a> - 健康检查</li>
   <li><a href="/api/policy">GET /api/policy</a> - 策略（白名单/限额）</li>
   <li>POST /api/pay - 发起支付（需用前端或 curl 调用）</li>
+  <li>POST /api/ai-pay - AI 自然语言支付（需用前端或 curl 调用）</li>
 </ul>
 </body></html>`);
     return;
@@ -133,8 +258,9 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`[AgentPayGuard API] http://localhost:${PORT}`);
   console.log('  GET  /api/health - 健康检查');
-  console.log('  GET  /api/policy - 策略（白名单/限额）');
-  console.log('  POST /api/pay    - 发起支付（body: recipient?, amount?, paymentMode?, executeOnchain?）');
+  console.log('  GET  /api/policy  - 策略（白名单/限额）');
+  console.log('  POST /api/pay     - 发起支付（body: recipient?, amount?, paymentMode?, executeOnchain?）');
+  console.log('  POST /api/ai-pay  - AI 自然语言支付（body: request, executeOnchain?）');
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {
