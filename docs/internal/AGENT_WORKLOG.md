@@ -6,8 +6,8 @@
 
 ### 当前状态
 
-- **代码**：`pnpm typecheck` / `demo:pay` / `demo:reject` / `demo:freeze` / `demo:ai-agent` / `pnpm server` 可用
-- **待完成**：B 产出 EOA/AA Tx Hash 交 C；C 填满 for_judge.md
+- **代码**：`pnpm typecheck` / `demo:pay` / `demo:reject` / `demo:freeze` / `demo:ai-agent` / `pnpm server` 可用；前端 Freeze/Proposals/Dashboard 已接入真实合约
+- **待完成**：B 产出 EOA/AA Tx Hash 交 C；C 填满 for_judge.md；History 页面仍为 mock 数据
 - **文档入口**：TESTING_GUIDE、交付给角色B、FINAL_DELIVERY_CHECKLIST、[PM_AND_ROLE_B_QUICKREF](PM_AND_ROLE_B_QUICKREF.md)
 
 ---
@@ -102,6 +102,7 @@ $env:KITE_API_KEY="api_key_xxx"; python python/kitepass_demo.py
 | 文档体系 | ✅ | 完整四角色指南 + AI 说明 + PM/Role B 规整 |
 | 安全防护 | ✅ | .env 保护，AI 安全集成 |
 | 多签/冻结 | ✅ | A 已交付合约地址，B 已集成 policy 检查 |
+| 前端合约集成 | ✅ | Freeze/Proposals/Dashboard 接入真实链上调用 |
 
 **新增能力**：AI Agent 核心（ai-intent.ts）、智能策略（evaluatePolicyWithAI）、自然语言接口（demo:ai-agent）、AI 风险评分、降级兼容（无 API 时回退解析）、免费 API 支持（DeepSeek/Gemini/Ollama）、前端+API 联调（run-pay + server + Pay 页）
 
@@ -129,6 +130,7 @@ $env:KITE_API_KEY="api_key_xxx"; python python/kitepass_demo.py
 
 | Phase | 内容 |
 |-------|------|
+| 31 | Freeze/Proposals/Dashboard 接入真实合约调用（去除 MOCK_DATA） |
 | 30 | 修复 pnpm server 输出可见性 + 更换默认端口 3456 |
 | 29 | 前端与 CLI 结合：后端 API + 前端 Pay 页 |
 | 28 | .clinerules 新增 4c 修改前检查分支约束 |
@@ -150,6 +152,34 @@ $env:KITE_API_KEY="api_key_xxx"; python python/kitepass_demo.py
 | 6–7 | 策略引擎、ERC20、AA、demo-pay/reject；KitePass Python 脚本 |
 | 3–5 | 从零搭建 Node/TS 骨架，处理 pnpm 依赖问题 |
 | 1–2 | 评审 for_judge，重写为评委可判定版 |
+
+---
+
+### Phase 31：Freeze/Proposals/Dashboard 接入真实合约调用（2026-01-31）
+
+- **背景**：用户指出 Freeze/Proposals 页面是项目核心卖点（多签风控），但前端全部使用 MOCK_DATA，无真实链上交互。需将前端三个核心页面接入 SimpleFreeze + SimpleMultiSig 合约。
+- **分支**：`feature/real-contract-calls`（主仓 + frontend 子模块）
+- **新增文件**：
+  - `frontend/src/lib/web3/abis.ts`：SimpleFreeze + SimpleMultiSig 完整 ABI（typed `as const`，支持 wagmi 类型推断）
+  - `docs/internal/PROJECT_ANALYSIS.md`：项目总结文档（结构、运行方法、核心功能、Agent 约束、前端分析）
+- **重写文件**：
+  - `frontend/src/lib/web3/hooks.ts`：替换全部 mock hooks 为真实合约调用
+    - `useFreezeStatus()` → `useReadContract` 调用 `SimpleFreeze.isFrozen()`
+    - `useMultiSigOwners()` → 读取 `getOwners()` 链上数据
+    - `useIsMultiSigOwner()` → 检查当前钱包是否为 owner
+    - `useProposals()` → `useReadContracts` 批量读取所有交易，解码 calldata（`0x8d1fdf2f`=freeze, `0x45c2badf`=unfreeze）
+    - `useSubmitProposal()` → `writeContract` 调用 `submitAndConfirm()`
+    - `useConfirmTransaction()` / `useExecuteTransaction()` / `useHasConfirmed()` → 新增确认/执行/查询 hooks
+  - `frontend/src/pages/Freeze.tsx`：去除 MOCK_DATA，使用 `useFreezeStatus` 链上查询 + `useSubmitProposal` 提交冻结/解冻提案；仅 owner 可操作；成功后显示 tx hash + 浏览器链接
+  - `frontend/src/pages/Proposals.tsx`：去除 MOCK_DATA，使用 `useProposals` 读取链上提案列表；支持确认（`confirmTransaction`）、执行（`executeTransaction`）；新建提案 modal；刷新按钮
+  - `frontend/src/pages/Dashboard.tsx`：去除 MOCK_DATA，使用 `useMultiSigOwners` 显示真实链上 owner 列表（标记当前用户）；`useProposals` 显示真实提案/pending 数量；`useIsMultiSigOwner` 显示 owner 状态
+- **技术要点**：
+  - wagmi v2 hooks（`useReadContract`, `useReadContracts`, `useWriteContract`, `useWaitForTransactionReceipt`）
+  - viem `encodeFunctionData` 编码 freeze/unfreeze calldata 传入 MultiSig
+  - 函数选择器解码：从 calldata 前 4 bytes 识别 freeze/unfreeze 类型，提取目标地址
+  - 角色控制：仅 multi-sig owner 显示 submit/confirm/execute 按钮
+- **验证**：`npx tsc --noEmit` 通过（0 errors）
+- **Commit**：`feat: replace mock data with real contract calls for Freeze/Proposals/Dashboard`
 
 ---
 
