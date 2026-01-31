@@ -183,6 +183,22 @@ pnpm demo:ai-agent "Pay 10 USDC to 0xd2d45ef2f2ddaffc8c8bc03cedc4f55fb9e97e2b"
 
 **单次测试最低消耗**：约 0.01～0.05 KITE（gas）+ 你设置的 `AMOUNT`（默认 0.001 USDT/USDC）。
 
+### 前端 + API 联调（通过 Web UI 发起支付）
+
+1. **主仓**：在项目根目录启动 API 服务（使用 `.env` 配置）  
+   ```bash
+   pnpm server
+   ```  
+   默认监听 `http://localhost:3000`，提供 `GET /api/health`、`GET /api/policy`、`POST /api/pay`。
+
+2. **前端**：进入子模块并启动开发服务器  
+   ```bash
+   cd frontend && npm i && npm run dev
+   ```  
+   开发环境下 `/api` 会代理到主仓 API（3000），打开首页 → **PAY**，填写收款地址、金额，选择 EOA/AA，勾选「真实发链上交易」后提交即可；成功会返回 txHash 与 Kite 浏览器链接。
+
+3. **环境**：主仓 `.env` 可设 `API_PORT=3000`、`CORS_ORIGIN=*`（或前端地址）；前端生产环境可设 `VITE_API_URL` 指向部署的 API 地址。
+
 ---
 
 ## AI Agent 功能特性

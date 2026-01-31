@@ -4,7 +4,7 @@
 
 ---
 
-### Phase 摘要（1–28）
+### Phase 摘要（1–29）
 
 | Phase | 内容 |
 |-------|------|
@@ -27,6 +27,17 @@
 | 26 | README 新增测试白名单地址 + 余额/转账验证说明 |
 | 27 | README 新增主仓+子模块 feature 分支工作流 |
 | 28 | .clinerules 新增 4c 修改前检查分支约束 |
+| 29 | 前端与 CLI 结合：后端 API + 前端 Pay 页 |
+
+---
+
+### Phase 29：前端与 CLI 结合（方案一：后端 API）
+
+- **目标**：前端通过 HTTP API 调用主仓支付逻辑，实现「Web UI 发起支付 → 后端执行 → 返回 txHash」。
+- **主仓**：新增 `src/lib/run-pay.ts`（可复用支付逻辑，供 CLI 与 API 共用）、`src/server.ts`（Node http 服务，GET /api/health、GET /api/policy、POST /api/pay）；`package.json` 新增 `pnpm server`；CORS 支持 `CORS_ORIGIN`。
+- **前端**：新增 `frontend/src/pages/Pay.tsx`（收款地址、金额、EOA/AA、executeOnchain 勾选，POST /api/pay，展示 txHash/错误）；`vite.config.ts` 开发时代理 `/api` → `http://localhost:3000`；首页增加 PAY 入口，路由 `/pay`。
+- **环境**：`.env.example` 增加 `API_PORT`、`CORS_ORIGIN`；前端可选 `VITE_API_URL`（生产环境 API 地址）。
+- **验证**：主仓 `pnpm server` 起 API，前端 `npm run dev` 打开 /pay，勾选 executeOnchain 发起支付，应返回 txHash 或策略错误。
 
 ---
 
