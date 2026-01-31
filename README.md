@@ -13,6 +13,21 @@
 > 说明：为了避免误转账，默认不发链上交易。你需要显式设置 `EXECUTE_ONCHAIN=1` 才会真的发送。
 
 参赛链接：https://github.com/CasualHackathon/SPARK-AI-Hackathon
+
+---
+
+## ⚡ 5 分钟跑起来
+
+```bash
+git clone <repo> && cd AgentPayGuard && git submodule update --init --recursive
+pnpm i
+cp .env.example .env   # 填好 PRIVATE_KEY、RPC_URL 等（见下方「快速开始」）
+pnpm demo:pay         # 干跑，不发链上交易
+# 或：pnpm demo:ai-agent "Pay 10 USDC to 0xd2d45ef2f2ddaffc8c8bc03cedc4f55fb9e97e2b for test"
+```
+
+真实链上发送需在 `.env` 中设置 `EXECUTE_ONCHAIN=1`，并确保钱包有测试用 KITE/USDC（见 [测试准备](#测试准备真实发送前必读)）。
+
 ---
 
 ## 文档导航

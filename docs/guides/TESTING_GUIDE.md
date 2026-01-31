@@ -8,64 +8,12 @@
 
 ## 前置条件
 
-### 1. 环境检查
+环境要求、钱包准备、`.env` 配置与安全提醒等**详见主仓 [README - 环境要求与快速开始](../../README.md#环境要求)** 与 **[README - 快速开始](../../README.md#快速开始)**。
 
-```bash
-# 检查 Node.js 和 pnpm
-node --version  # v20+
-pnpm --version  # v9+
-
-# 检查代码编译
-pnpm typecheck  # 应该输出 0 errors
-```
-
-### 2. Kite 测试网络钱包准备
-
-需要一个 Kite 测试网络的钱包，包含：
-- **Owner EOA**: 拥有私钥，用于签署 UserOperation
-- **测试资金**: 足够的测试 USDC (0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63)
-  - 建议最少 10 USDC 用于多次测试
-
-**获取测试资金**:
-```bash
-# 访问 Kite 测试网水龙头
-# https://faucet.gokite.ai/ (需确认最新地址)
-# 请求 10-20 USDC 到你的 Owner EOA 地址
-```
-
-### 3. 创建配置文件
-
-复制模板并填入真实私钥:
-
-```bash
-cp .env.example .env
-```
-
-编辑 `.env`:
-
-```env
-# Kite 测试网配置
-KITE_RPC_URL=https://rpc-testnet.gokite.ai/
-KITE_BUNDLER_URL=https://bundler-service.staging.gokite.ai/rpc/
-KITE_SETTLEMENT_TOKEN=0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63
-
-# Owner EOA 私钥（从钱包导出，带或不带 0x 前缀均可）
-OWNER_PRIVATE_KEY=your_private_key_here
-
-# 支付模式：eoa (直接转账) 或 aa (UserOperation)
-PAYMENT_MODE=eoa
-
-# 执行开关：0 (干运行) 或 1 (真实链上执行)
-EXECUTE_ONCHAIN=0
-
-# Paymaster 地址（可选，测试时使用默认）
-# PAYMASTER_ADDRESS=0x...
-```
-
-**⚠️ 安全提醒**: 
-- `.env` 不要提交到 Git
-- 权限设置: `chmod 600 .env`
-- 不要分享 `OWNER_PRIVATE_KEY`
+测试前请确保：
+- Node.js 20+、pnpm 已安装；`pnpm typecheck` 输出 0 errors
+- 已复制 `.env.example` 为 `.env` 并填写 `OWNER_PRIVATE_KEY` 等（Kite 测试网 RPC/Token 见 README）
+- 钱包具备测试用 USDC 与 KITE（获取方式见 [README - 测试准备](../../README.md#测试准备真实发送前必读)）
 
 ---
 

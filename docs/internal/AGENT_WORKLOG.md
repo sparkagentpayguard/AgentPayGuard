@@ -42,6 +42,23 @@
 
 ---
 
+### Phase 33：文档减冗余（按 CODE_AND_DOCS_EVALUATION 建议）（2026-01-31）
+
+**背景**：按 [CODE_AND_DOCS_EVALUATION.md](CODE_AND_DOCS_EVALUATION.md) 建议，统一「单一事实来源」、减少重复维护。
+
+**步骤与文件变更**：
+
+1. **项目总结二选一**：`docs/internal/PROJECT_ANALYSIS.md` 改为短页索引，主文档指向根目录 [PROJECT_SUMMARY.md](../../PROJECT_SUMMARY.md)。
+2. **RECENT_CHANGES 与 WORKLOG 统一**：`docs/internal/RECENT_CHANGES_SUMMARY.md` 改为「见 AGENT_WORKLOG Phase 21 至当前」索引，不再按提交维护文件列表。
+3. **multisig 与 guides 分工**：`docs/multisig/README.md` 文首增加「文档分工」：本目录为中文内部交接；英文主文档见 ROLE_A_GUIDE、PM_AND_ROLE_B_QUICKREF、FINAL_DELIVERY_CHECKLIST。`docs/guides/ROLE_A_GUIDE.md`、`docs/internal/PM_AND_ROLE_B_QUICKREF.md` 文首增加「中文内部交接见 docs/multisig/」。
+4. **TESTING_GUIDE 前置条件**：环境检查、钱包、.env 配置等改为引用 [README - 环境要求与快速开始](../../README.md#环境要求)，仅保留最小提醒（Node 20+、pnpm、.env 已配置、typecheck 通过）。
+5. **HACKATHON_FRONTEND_DESIGN**：完整版迁至 `docs/archived/HACKATHON_FRONTEND_DESIGN.md`；`docs/reference/HACKATHON_FRONTEND_DESIGN.md` 改为短页「设计原则摘要 + 链接到 archived + FRONTEND_DESIGN_REFERENCE」。
+6. **README 快速开始**：新增「⚡ 5 分钟跑起来」小节（clone、pnpm i、cp .env、pnpm demo:pay），置于文档导航前。
+
+**验证**：文档链接可读；TESTING_GUIDE 前置条件不再重复 README 正文。
+
+---
+
 ### 运行命令
 
 ```bash
@@ -152,6 +169,7 @@ $env:KITE_API_KEY="api_key_xxx"; python python/kitepass_demo.py
 
 | Phase | 内容 |
 |-------|------|
+| 33 | 文档减冗余（按 CODE_AND_DOCS_EVALUATION）：PROJECT_ANALYSIS/RECENT_CHANGES 改索引、multisig 与 guides 分工、TESTING_GUIDE 引用 README、HACKATHON_FRONTEND 归档、README 5 分钟跑起来 |
 | 21–32 + 近期 | 见上方「Phase 21 至当前：总结」：免费 AI API → 子模块/RPC → 文档与分支流程 → 前端 API → server 端口 → 真实合约 → AI 性能 → README ASH + 前端优化 → 低余额测试与风控可配置 |
 | 20 | AI Agent（ai-intent + demo:ai-agent） |
 | 19 | Role B 交付物优化 |
