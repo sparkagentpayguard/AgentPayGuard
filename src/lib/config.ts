@@ -43,8 +43,14 @@ export const EnvSchema = z.object({
   // Debug
   PROBE_KITE_AA: boolFromEnv(false),
 
-  // AI Agent Integration (optional)
+  // AI Agent Integration (optional) - 支持多种免费API提供商
   OPENAI_API_KEY: z.string().optional(),
+  DEEPSEEK_API_KEY: z.string().optional(),      // DeepSeek免费额度
+  GEMINI_API_KEY: z.string().optional(),        // Google Gemini免费额度
+  CLAUDE_API_KEY: z.string().optional(),        // Claude API
+  OLLAMA_URL: z.string().optional(),            // 本地Ollama服务
+  LMSTUDIO_URL: z.string().optional(),          // 本地LM Studio服务
+  LOCAL_AI_URL: z.string().optional(),          // 通用本地AI服务
   AI_MODEL: z.string().default('gpt-4o-mini'),
   ENABLE_AI_INTENT: boolFromEnv(false)
 });

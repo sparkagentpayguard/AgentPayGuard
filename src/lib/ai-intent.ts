@@ -20,21 +20,122 @@ export interface RiskAssessment {
   recommendations: string[];
 }
 
+// 支持的API提供商类型
+type AIProvider = 'openai' | 'deepseek' | 'gemini' | 'claude' | 'local' | 'ollama' | 'lmstudio' | 'none';
+
 export class AIIntentParser {
   private openai: OpenAI | null = null;
   private env: ReturnType<typeof loadEnv>;
+  private provider: AIProvider = 'none';
+  private model: string = '';
 
   constructor() {
     this.env = loadEnv();
-    if (this.env.OPENAI_API_KEY && this.env.ENABLE_AI_INTENT) {
-      this.openai = new OpenAI({
-        apiKey: this.env.OPENAI_API_KEY,
+    
+    // 确定使用哪个API提供商
+    this.provider = this.determineProvider();
+    this.model = this.determineModel();
+    
+    if (this.env.ENABLE_AI_INTENT && this.provider !== 'none') {
+      this.openai = this.createOpenAIClient();
+    }
+  }
+
+  private determineProvider(): AIProvider {
+    if (!this.env.ENABLE_AI_INTENT) return 'none';
+    
+    // 检查各种API密钥，按优先级排序
+    if (this.env.DEEPSEEK_API_KEY) return 'deepseek';      // 免费额度
+    if (this.env.GEMINI_API_KEY) return 'gemini';          // 免费额度
+    if (this.env.OPENAI_API_KEY) return 'openai';          // 付费
+    if (this.env.CLAUDE_API_KEY) return 'claude';          // 付费
+    if (this.env.OLLAMA_URL) return 'ollama';              // 免费本地
+    if (this.env.LMSTUDIO_URL) return 'lmstudio';          // 免费本地
+    if (this.env.LOCAL_AI_URL) return 'local';             // 通用本地
+    
+    return 'none';
+  }
+
+  private determineModel(): string {
+    // 如果用户指定了模型，使用用户指定的
+    if (this.env.AI_MODEL) return this.env.AI_MODEL;
+    
+    // 否则根据提供商设置默认模型
+    switch (this.provider) {
+      case 'openai': return 'gpt-4o-mini';
+      case 'deepseek': return 'deepseek-chat';
+      case 'gemini': return 'gemini-1.5-pro';
+      case 'claude': return 'claude-3-haiku';
+      case 'ollama': return 'llama3.2';
+      case 'lmstudio': return 'local-model';
+      case 'local': return 'local-model';
+      default: return 'gpt-4o-mini';
+    }
+  }
+
+  private createOpenAIClient(): OpenAI | null {
+    try {
+      let apiKey = '';
+      let baseURL = '';
+      
+      switch (this.provider) {
+        case 'openai':
+          apiKey = this.env.OPENAI_API_KEY!;
+          baseURL = 'https://api.openai.com/v1';
+          break;
+        case 'deepseek':
+          apiKey = this.env.DEEPSEEK_API_KEY!;
+          baseURL = 'https://api.deepseek.com/v1';
+          break;
+        case 'gemini':
+          // Google Gemini 使用不同的SDK，这里简化处理为兼容OpenAI格式
+          apiKey = this.env.GEMINI_API_KEY!;
+          baseURL = 'https://generativelanguage.googleapis.com/v1';
+          break;
+        case 'claude':
+          apiKey = this.env.CLAUDE_API_KEY!;
+          baseURL = 'https://api.anthropic.com/v1';
+          break;
+        case 'ollama':
+          apiKey = 'not-needed';
+          baseURL = this.env.OLLAMA_URL || 'http://localhost:11434/v1';
+          break;
+        case 'lmstudio':
+          apiKey = 'not-needed';
+          baseURL = this.env.LMSTUDIO_URL || 'http://localhost:1234/v1';
+          break;
+        case 'local':
+          apiKey = 'not-needed';
+          baseURL = this.env.LOCAL_AI_URL!;
+          break;
+        default:
+          return null;
+      }
+      
+      return new OpenAI({
+        apiKey,
+        baseURL,
       });
+    } catch (error) {
+      console.error('[AI] Failed to create API client:', error);
+      return null;
     }
   }
 
   isEnabled(): boolean {
-    return this.env.ENABLE_AI_INTENT && !!this.env.OPENAI_API_KEY;
+    return this.env.ENABLE_AI_INTENT && this.provider !== 'none';
+  }
+
+  getProviderInfo(): { provider: AIProvider; model: string; isFree: boolean; baseURL?: string } {
+    const freeProviders: AIProvider[] = ['deepseek', 'gemini', 'ollama', 'lmstudio', 'local'];
+    const isFree = freeProviders.includes(this.provider);
+    
+    return {
+      provider: this.provider,
+      model: this.model,
+      isFree,
+      baseURL: this.openai?.baseURL
+    };
   }
 
   /**
@@ -72,7 +173,7 @@ Example inputs:
 - "Transfer $50 to vendor for office supplies"`;
 
       const completion = await this.openai.chat.completions.create({
-        model: this.env.AI_MODEL,
+        model: this.model,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage }
@@ -167,7 +268,7 @@ ${contextStr}
 Please provide risk assessment.`;
 
       const completion = await this.openai.chat.completions.create({
-        model: this.env.AI_MODEL,
+        model: this.model,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }

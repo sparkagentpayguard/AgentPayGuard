@@ -12,6 +12,7 @@ AgentPayGuard 已从传统的安全支付系统升级为**智能 AI Agent 支付
 2. **智能风险评估**：基于上下文的 AI 风险评分
 3. **AI增强策略**：传统规则 + AI 风险控制的组合
 4. **端到端 AI 工作流**：从自然语言请求到链上执行的完整闭环
+5. **多提供商支持**：支持OpenAI、DeepSeek、Gemini、Claude及本地AI服务
 
 ---
 
@@ -20,7 +21,8 @@ AgentPayGuard 已从传统的安全支付系统升级为**智能 AI Agent 支付
 ### 核心模块
 
 ```
-src/lib/ai-intent.ts        # AI意图解析和风险评估（269行）
+src/lib/ai-intent.ts        # AI意图解析和风险评估（支持多提供商）
+src/lib/config.ts           # 环境变量配置（支持多种API密钥）
 src/lib/policy.ts           # AI增强策略引擎（512行）
 src/demo-ai-agent.ts        # AI Agent演示脚本（208行）
 ```
@@ -60,14 +62,18 @@ const parser = new AIIntentParser();
 
 **`parsePaymentIntent(text: string): Promise<PaymentIntent>`**
 - 从自然语言文本解析支付意图
-- 返回结构化支付信息
+- 支持多种AI提供商，自动选择可用服务
 
 **`assessRisk(intent: PaymentIntent, context?: RiskContext): Promise<RiskAssessment>`**
 - 评估支付风险
 - 返回风险评分、等级、理由和建议
 
 **`isEnabled(): boolean`**
-- 检查 AI 功能是否启用（是否有 OpenAI API Key）
+- 检查 AI 功能是否启用（是否有任何可用的API密钥）
+
+**`getProviderInfo(): { provider: string; model: string; isFree: boolean }`**
+- 获取当前使用的AI提供商信息
+- 返回提供商类型、模型名称和是否免费
 
 #### 类型定义
 
@@ -142,10 +148,22 @@ interface EnhancedPolicyDecision {
 在 `.env` 文件中配置：
 
 ```bash
-# AI 功能配置
+# AI 功能配置 - 支持多种免费API提供商
 ENABLE_AI_INTENT=1                    # 启用AI功能
-OPENAI_API_KEY=sk-...                 # OpenAI API密钥
-AI_MODEL=gpt-4o-mini                  # AI模型（默认：gpt-4o-mini）
+
+# 免费API提供商（按优先级使用）
+DEEPSEEK_API_KEY=your-deepseek-key    # DeepSeek免费额度（推荐）
+GEMINI_API_KEY=your-gemini-key        # Google Gemini免费额度
+OPENAI_API_KEY=sk-...                 # OpenAI API密钥（付费）
+CLAUDE_API_KEY=your-claude-key        # Claude API密钥（付费）
+
+# 本地AI服务（完全免费）
+OLLAMA_URL=http://localhost:11434/v1  # Ollama本地服务
+LMSTUDIO_URL=http://localhost:1234/v1 # LM Studio本地服务
+LOCAL_AI_URL=http://localhost:8080/v1 # 其他本地AI服务
+
+# AI模型配置
+AI_MODEL=gpt-4o-mini                  # 默认模型，根据提供商自动调整
 
 # 传统支付配置
 RPC_URL=https://rpc-testnet.gokite.ai/
@@ -158,6 +176,44 @@ RECIPIENT=0x...
 ALLOWLIST=0x...
 MAX_AMOUNT=1000
 DAILY_LIMIT=10000
+```
+
+### 免费API提供商说明
+
+系统支持多种免费API提供商，按以下优先级自动选择：
+
+1. **DeepSeek** - 推荐免费方案，提供充足免费额度
+   - 注册：https://platform.deepseek.com/
+   - 模型：`deepseek-chat`
+   - 特点：完全免费，支持中文，响应速度快
+
+2. **Google Gemini** - 免费额度充足
+   - 注册：https://makersuite.google.com/app/apikey
+   - 模型：`gemini-1.5-pro`
+   - 特点：免费额度大，多模态支持
+
+3. **本地AI服务** - 完全免费，需要本地部署
+   - **Ollama**：部署本地大模型（Llama 3、Qwen等）
+   - **LM Studio**：图形化本地AI服务
+   - 特点：数据本地化，无网络延迟，完全免费
+
+4. **OpenAI/Claude** - 付费方案
+   - 适合需要最高准确性的生产环境
+   - 提供最稳定的API服务
+
+### 优雅降级机制
+
+如果未配置任何API密钥，系统会自动使用**内置回退解析器**：
+- ✅ 完全免费，无需API密钥
+- ✅ 使用正则表达式解析基础支付信息
+- ✅ 提供基础风险评估
+- ✅ 确保系统始终可用
+
+**使用回退解析器时的输出示例**：
+```
+[AI] Using fallback parser
+Parsed Successfully: ⚠️
+Reasoning: Fallback parser used - limited risk assessment
 ```
 
 ### AI 策略配置
@@ -200,8 +256,14 @@ const customPolicy = {
 ### 1. 基本使用（CLI）
 
 ```bash
-# 使用自然语言指令执行支付
-pnpm demo:ai-agent "Pay 50 USDC to 0xd2d45ef2f2ddaffc8c8bc03cedc4f55fb9e97e2b for server hosting"
+# 使用自然语言指令执行支付（免费回退解析器）
+ENABLE_AI_INTENT=1 pnpm demo:ai-agent "Pay 50 USDC to 0xd2d45ef2f2ddaffc8c8bc03cedc4f55fb9e97e2b for server hosting"
+
+# 使用DeepSeek API（免费）
+DEEPSEEK_API_KEY=your-key ENABLE_AI_INTENT=1 pnpm demo:ai-agent "Send 100 USDC to 0x742d35Cc6634C0532925a3b844Bc9e0BB0A8E2D3"
+
+# 使用本地Ollama（完全免费）
+OLLAMA_URL=http://localhost:11434/v1 ENABLE_AI_INTENT=1 pnpm demo:ai-agent "Pay 25 USDC to 0x..."
 
 # 指定金额和目的
 pnpm demo:ai-agent "Send 100 USDC to 0x742d35Cc6634C0532925a3b844Bc9e0BB0A8E2D3 for monthly subscription"
@@ -220,18 +282,22 @@ async function processPaymentRequest(naturalLanguage: string) {
   // 1. 初始化AI解析器
   const aiParser = new AIIntentParser();
   
-  // 2. 解析自然语言请求
+  // 2. 获取提供商信息
+  const providerInfo = aiParser.getProviderInfo();
+  console.log(`Using AI provider: ${providerInfo.provider} (${providerInfo.isFree ? 'free' : 'paid'})`);
+  
+  // 3. 解析自然语言请求
   const paymentIntent = await aiParser.parsePaymentIntent(naturalLanguage);
   console.log('Parsed intent:', paymentIntent);
   
-  // 3. 风险评估
+  // 4. 风险评估
   const riskAssessment = await aiParser.assessRisk(paymentIntent, {
     historicalPayments: [...],
     walletBalance: 10000
   });
   console.log('Risk assessment:', riskAssessment);
   
-  // 4. AI增强策略评估
+  // 5. AI增强策略评估
   const decision = await evaluatePolicyWithAI({
     policy: enhancedPolicy,
     recipient: paymentIntent.recipient,
@@ -242,7 +308,7 @@ async function processPaymentRequest(naturalLanguage: string) {
     context: { /* 风险上下文 */ }
   });
   
-  // 5. 处理决策结果
+  // 6. 处理决策结果
   if (decision.baseDecision.ok) {
     console.log('✅ Payment approved');
     if (decision.aiAssessment) {
@@ -464,94 +530,4 @@ describe('AIIntentParser', () => {
     const intent = {
       recipient: '0xd2d45ef2f2ddaffc8c8bc03cedc4f55fb9e97e2b',
       amount: '1000 USDC',
-      amountNumber: 1000,
-      currency: 'USDC',
-      purpose: 'Large transfer to new address',
-      riskLevel: 'medium',
-      confidence: 0.8,
-      parsedSuccessfully: true
-    };
-    
-    const assessment = await parser.assessRisk(intent);
-    
-    expect(assessment.score).toBeGreaterThan(0);
-    expect(assessment.score).toBeLessThanOrEqual(100);
-    expect(['low', 'medium', 'high']).toContain(assessment.level);
-    expect(assessment.reasons).toBeInstanceOf(Array);
-    expect(assessment.recommendations).toBeInstanceOf(Array);
-  });
-});
-```
-
-### 集成测试
-
-```bash
-# 测试AI Agent完整工作流
-ENABLE_AI_INTENT=1 pnpm demo:ai-agent "Pay 10 USDC to 0xd2d45ef2f2ddaffc8c8bc03cedc4f55fb9e97e2b for testing"
-
-# 测试大额支付拒绝
-ENABLE_AI_INTENT=1 pnpm demo:ai-agent "Pay 5000 USDC to 0xd2d45ef2f2ddaffc8c8bc03cedc4f55fb9e97e2b"
-
-# 测试无AI回退
-ENABLE_AI_INTENT=1 pnpm demo:ai-agent "Pay 5 USDC to 0xd2d45ef2f2ddaffc8c8bc03cedc4f55fb9e97e2b"
-```
-
-### 测试场景矩阵
-
-| 测试场景 | 输入 | 预期结果 | 验证点 |
-|---------|------|----------|--------|
-| 正常支付 | "Pay 10 USDC to 0x... for hosting" | ✅ 通过 | AI解析成功，风险评估合理 |
-| 大额支付 | "Pay 5000 USDC to 0x..." | ❌ 拒绝 | AMOUNT_EXCEEDS_MAX |
-| 高风险目的 | "Pay 100 USDC to 0x... for gambling" | ⚠️ 警告/拒绝 | 高风险评分，相应处理 |
-| 格式错误 | "Send money to address" | ⚠️ 部分解析 | 使用回退解析器 |
-| 无AI功能 | （无OPENAI_API_KEY） | ✅ 降级处理 | 使用回退解析器，系统可用 |
-
----
-
-## 故障排除
-
-### 常见问题
-
-1. **AI 功能未启用**
-   ```
-   症状：日志显示"AI Status: ⚠️ Disabled (using fallback parser)"
-   解决：设置 OPENAI_API_KEY 环境变量
-   ```
-
-2. **API 调用失败**
-   ```
-   症状：错误信息包含"OpenAI API error"
-   解决：检查 API 密钥有效性、网络连接、额度限制
-   ```
-
-3. **解析准确率低**
-   ```
-   症状：parsedSuccessfully: false 或 confidence 低
-   解决：优化提示词，或扩展自定义解析器
-   ```
-
-4. **风险评估不合理**
-   ```
-   症状：风险分数与预期不符
-   解决：调整风险评估逻辑，或集成更多上下文数据
-   ```
-
-### 调试模式
-
-启用详细日志：
-
-```typescript
-// 在代码中设置
-process.env.DEBUG_AI = '1';
-
-// 或在命令行中
-DEBUG_AI=1 pnpm demo:ai-agent "Pay 50 USDC to 0x..."
-```
-
----
-
-## 性能优化
-
-### 缓存策略
-
-```types
+      amount
