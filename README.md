@@ -30,7 +30,7 @@
 | **参考文档** |
 | [ARCHITECTURE.md](docs/reference/ARCHITECTURE.md) | 🏗️ 系统架构与设计决策 |
 | [allocation.md](docs/reference/allocation.md) | 👥 角色分工与交付物清单 |
-| [QUICK_REFERENCE.md](docs/reference/QUICK_REFERENCE.md) | ⚡ 快速参考（命令、地址、Tx Hash）|
+| [PM_AND_ROLE_B_CONSOLIDATED.md](docs/internal/PM_AND_ROLE_B_CONSOLIDATED.md) | ⚡ PM / Role B 规整文档（检查清单、命令、测试、A→B 交付）|
 | [resources/](docs/resources/) | 📚 **原始资源**（赛道规则、官方链接等） |
 | **内部管理** |
 | [FINAL_DELIVERY_CHECKLIST.md](docs/internal/FINAL_DELIVERY_CHECKLIST.md) | ✅ 最终交付清单（角色 A/B/C/D） |

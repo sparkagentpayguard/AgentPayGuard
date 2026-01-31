@@ -1,6 +1,6 @@
 # PM & 角色 B 快速参考
 
-> 详细内容见下方链接，本文档仅保留检查清单与入口。
+> **规整文档**：所有 PM / Role B 相关内容已整合至 [PM_AND_ROLE_B_CONSOLIDATED.md](PM_AND_ROLE_B_CONSOLIDATED.md)，按用途分类。本文档为精简入口。
 
 ---
 
@@ -27,6 +27,7 @@
 
 | 用途 | 文档 |
 |------|------|
+| **PM & Role B 规整文档**（检查清单、测试、A→B 交付、索引） | [PM_AND_ROLE_B_CONSOLIDATED.md](PM_AND_ROLE_B_CONSOLIDATED.md) |
 | Role B 详细测试步骤（5 场景 + 演讲） | [TESTING_GUIDE.md](../guides/TESTING_GUIDE.md) |
 | A→B 合约交付（多签/冻结合约、ABI、集成方案） | [交付给角色B.md](../multisig/交付给角色B.md) |
 | 总交付清单（A/B/C/D） | [FINAL_DELIVERY_CHECKLIST.md](FINAL_DELIVERY_CHECKLIST.md) |
