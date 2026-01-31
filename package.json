@@ -5,7 +5,7 @@
   "description": "AgentPayGuard: Kite Payment Track MVP (policy + payment demos)",
   "type": "module",
   "scripts": {
-    "server": "node --import tsx src/server.ts",
+    "server": "API_PORT=3456 tsx src/server.ts",
     "demo:pay": "tsx src/demo-pay.ts",
     "demo:reject": "tsx src/demo-reject.ts",
     "demo:freeze": "tsx src/test-freeze.ts",

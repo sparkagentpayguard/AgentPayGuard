@@ -16,7 +16,7 @@ process.on('unhandledRejection', (reason, p) => {
 });
 
 console.error('[AgentPayGuard API] starting...');
-const PORT = Number(process.env.API_PORT ?? process.env.PORT ?? 3000);
+const PORT = Number(process.env.API_PORT ?? process.env.PORT ?? 3456);
 const CORS_ORIGIN = process.env.CORS_ORIGIN ?? '*';
 
 function parseBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
