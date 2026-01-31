@@ -182,6 +182,27 @@ pnpm demo:ai-agent "Pay 50 USDC to 0x... via account abstraction"
 - **AI自动拒绝**：`autoRejectRiskLevels`（自动拒绝的风险等级，默认["high"]）
 - **链上冻结检查**：实时检查多签冻结状态（强依赖模式）
 
+### 测试用白名单地址（ALLOWLIST）
+
+可使用以下**仅接收、无私钥**的测试地址作为 `ALLOWLIST` 和 `RECIPIENT`。这些地址由 `ethers.Wallet.createRandom()` 随机生成，只保留地址、未保存私钥：
+
+```
+ALLOWLIST=0xA7721cCcbD5CAf2F8555aDe641C4Fd687c9a8B52,0x0CAFCC43997CC0ec4C8ff3aB792b0EC6605a7b5b,0xd63E03B9D8c96fdf7F90301b7b12D81a7488Cf9f,0x1Ba32150D7a3cB16852A70850c9C1325f3192211,0xED60f7af5AA1F7650381243Ec850630E1A368c2E
+```
+
+**单独地址**（可复制到 `RECIPIENT`）：
+- `0xA7721cCcbD5CAf2F8555aDe641C4Fd687c9a8B52`
+- `0x0CAFCC43997CC0ec4C8ff3aB792b0EC6605a7b5b`
+- `0xd63E03B9D8c96fdf7F90301b7b12D81a7488Cf9f`
+- `0x1Ba32150D7a3cB16852A70850c9C1325f3192211`
+- `0xED60f7af5AA1F7650381243Ec850630E1A368c2E`
+
+**说明**：
+- 这些是标准 EVM 地址，可正常接收代币，但**无法从这些地址转出**（无私钥）
+- **查看余额**：在 [Kite 区块浏览器](https://testnet.kitescan.ai/) 搜索地址，可看到 USDC 等代币余额
+- **验证转账成功**：① 用 `demo:pay` 输出的 Tx Hash 在浏览器搜索；② 或打开收款地址页面查看 Token Transfers
+- 适合白名单测试和验证「支付是否到账」
+
 ---
 
 ## Kite 官方参考
