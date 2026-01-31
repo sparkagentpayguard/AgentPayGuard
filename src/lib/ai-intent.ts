@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { loadEnv } from './config.js';
+import { SimpleCache, hashString } from './cache.js';
 
 export interface PaymentIntent {
   recipient: string;
@@ -28,9 +29,12 @@ export class AIIntentParser {
   private env: ReturnType<typeof loadEnv>;
   private provider: AIProvider = 'none';
   private model: string = '';
+  private cache: SimpleCache<{ intent: PaymentIntent; risk: RiskAssessment }>;
 
   constructor() {
     this.env = loadEnv();
+    // Cache AI responses for 5 minutes (300 seconds)
+    this.cache = new SimpleCache(300);
     
     // 确定使用哪个API提供商
     this.provider = this.determineProvider();
@@ -247,6 +251,14 @@ Example inputs:
     historicalPayments?: Array<{recipient: string, amount: number, timestamp: Date}>;
     walletBalance?: number;
   }): Promise<{ intent: PaymentIntent; risk: RiskAssessment }> {
+    // Check cache first (5 minute TTL)
+    const cacheKey = hashString(userMessage + JSON.stringify(context || {}));
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      console.log('[AI] Cache hit for request:', userMessage.substring(0, 50) + '...');
+      return cached;
+    }
+
     if (!this.isEnabled() || !this.openai) {
       const intent = this.fallbackParse(userMessage);
       const risk = this.fallbackRiskAssessment(intent);
@@ -320,7 +332,7 @@ Parse the intent and assess the risk.`;
 
       const parsed = JSON.parse(content);
       
-      return {
+      const result = {
         intent: {
           ...parsed.intent,
           parsedSuccessfully: true,
@@ -331,6 +343,12 @@ Parse the intent and assess the risk.`;
           level: parsed.risk.level.toLowerCase() as 'low' | 'medium' | 'high'
         }
       };
+      
+      // Cache the result for 5 minutes
+      this.cache.set(cacheKey, result);
+      console.log('[AI] Cached result for request:', userMessage.substring(0, 50) + '...');
+      
+      return result;
     } catch (error) {
       console.error('[AI] Error in combined parse and assess:', error);
       const intent = this.fallbackParse(userMessage);
