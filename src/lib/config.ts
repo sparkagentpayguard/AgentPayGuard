@@ -61,7 +61,11 @@ export const EnvSchema = z.object({
   LMSTUDIO_URL: z.string().optional(),          // 本地LM Studio服务
   LOCAL_AI_URL: z.string().optional(),          // 通用本地AI服务
   AI_MODEL: z.string().default('gpt-4o-mini'),
-  ENABLE_AI_INTENT: boolFromEnv(false)
+  ENABLE_AI_INTENT: boolFromEnv(false),
+
+  // AI 风控阈值（可选，不设则用默认值）
+  AI_MAX_RISK_SCORE: z.coerce.number().int().min(0).max(100).optional(),
+  AI_AUTO_REJECT_LEVELS: z.string().optional() // 逗号分隔，如 "high" 或 "high,medium"
 });
 
 export type Env = z.infer<typeof EnvSchema>;

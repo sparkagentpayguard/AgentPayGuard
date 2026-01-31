@@ -270,6 +270,55 @@ target: 0xb89Ffb647Bc1D12eDcf7b0C13753300e17F2d6e9
 
 ---
 
+## 前端可测风控场景（Web UI）
+
+先启动主仓 API（`pnpm server`）和前端（`cd frontend && npm run dev`），在浏览器打开 **PAY** 页面。以下场景均可通过前端表单 + API 完成，无需 CLI。
+
+| 场景 | 前端操作 | API | 预期 |
+|------|----------|-----|------|
+| **白名单拒绝** | 收款地址填非白名单地址（如 `0x000000000000000000000000000000000000dEaD`），不勾选「真实发链上交易」 | POST /api/pay | 返回 `ok: false`，`code: NOT_IN_ALLOWLIST` |
+| **单笔超限** | 收款填白名单内地址，金额填大于 `.env` 中 MAX_AMOUNT 的值，不勾选真实发链 | POST /api/pay | 返回 `ok: false`，`code: AMOUNT_EXCEEDS_MAX` |
+| **日限额超限** | 先发一笔真实支付（勾选真实发链），再同一天内再发一笔真实支付，且两笔合计超过 DAILY_LIMIT | POST /api/pay | 第二笔返回 `ok: false`，`code: DAILY_LIMIT_EXCEEDED` |
+| **链上冻结** | 收款填已被多签冻结的地址（需 Role A 提供），不勾选真实发链 | POST /api/pay | 返回 `ok: false`，`code: RECIPIENT_FROZEN` |
+| **查询冻结状态** | 浏览器或前端请求 `GET /api/freeze?address=0x...` | GET /api/freeze | 返回 `{ ok: true, address, isFrozen }` |
+| **查看策略** | 打开或请求 `GET /api/policy` | GET /api/policy | 返回 allowlist、maxAmount、dailyLimit 等，便于前端展示与校验 |
+
+前端可根据 GET /api/policy 展示当前 MAX_AMOUNT、DAILY_LIMIT 和白名单数量，引导用户填写合法/非法地址与金额，以覆盖上述风控场景。
+
+---
+
+## 低余额测试（1 USDT + 0.3 KITE）
+
+在测试账户仅有 **约 1 USDT** 和 **约 0.3 KITE** 时，建议按「前端可测优先、干跑为主、真实发链最少」的方式覆盖各风控与冻结场景。
+
+### 推荐配置（.env）
+
+在 [.env.example](.env.example) 中已增加「小额测试推荐」注释块，可参考：
+
+- `AMOUNT=0.001`：单笔金额小，便于多次干跑
+- `MAX_AMOUNT=0.1`：单笔上限小于 1，便于触发 AMOUNT_EXCEEDS_MAX
+- `DAILY_LIMIT=0.002`：略大于 1 笔 AMOUNT，便于 1～2 笔真实支付后触发 DAILY_LIMIT_EXCEEDED
+- `ALLOWLIST`：只填 1～2 个白名单地址，便于用非白名单地址触发 NOT_IN_ALLOWLIST
+- `EXECUTE_ONCHAIN=0`：默认干跑；仅在验证日限额或链上成功时改为 `1`
+
+### 如何覆盖各场景（前端可测优先）
+
+1. **白名单拒绝、单笔超限、链上冻结（只读）**  
+   全部用 **干跑**（不勾选「真实发链上交易」）：前端 PAY 页填写对应收款/金额，提交后看 API 返回的 `code`（NOT_IN_ALLOWLIST、AMOUNT_EXCEEDS_MAX、RECIPIENT_FROZEN）。链上冻结状态可用 GET /api/freeze?address=0x... 先确认。
+
+2. **日限额超限**  
+   先确保 `.env` 中 `DAILY_LIMIT=0.002`（或略大于 AMOUNT）。前端第一笔勾选「真实发链」、金额 0.001，成功；同一天内第二笔再勾选真实发链、金额 0.001，应返回 DAILY_LIMIT_EXCEEDED。这样只消耗约 0.001 USDT + 两笔 gas（KITE）。
+
+3. **正常通过 + 链上验证**  
+   白名单地址 + 金额 ≤ MAX_AMOUNT + 未超日限额，勾选真实发链可发 1 笔，用于在 [Kite 测试网浏览器](https://testnet.kitescan.ai/txs) 或 [Etherscan 风格浏览器](https://etherscan.io/) 验证 txHash。
+
+### 资源与参考
+
+- Kite 测试网交易列表：<https://testnet.kitescan.ai/txs>
+- 主仓默认 API 端口见 README「前端 + API 联调」；前端开发环境会将 `/api` 代理到主仓。
+
+---
+
 ## 测试结果矩阵
 
 | 场景 | 命令 | 目标 | 预期结果 | 状态 |

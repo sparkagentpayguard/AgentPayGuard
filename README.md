@@ -194,6 +194,9 @@ pnpm demo:ai-agent "Pay 10 USDC to 0xd2d45ef2f2ddaffc8c8bc03cedc4f55fb9e97e2b"
 
 **单次测试最低消耗**：约 0.01～0.05 KITE（gas）+ 你设置的 `AMOUNT`（默认 0.001 USDT/USDC）。
 
+**低余额测试（约 1 USDT + 0.3 KITE）**：  
+可用小额配置（AMOUNT=0.001、MAX_AMOUNT=0.1、DAILY_LIMIT=0.002）配合**干跑**覆盖大部分风控；真实发链仅 1～2 笔验证日限额即可。各风控与冻结场景均支持**前端可测**（PAY 页 + GET /api/policy、GET /api/freeze）。详见 [TESTING_GUIDE - 低余额测试](docs/guides/TESTING_GUIDE.md#低余额测试1-usdt--03-kite) 与 [前端可测风控场景](docs/guides/TESTING_GUIDE.md#前端可测风控场景web-ui)。
+
 ### 前端 + API 联调（通过 Web UI 发起支付）
 
 1. **主仓**：在项目根目录启动 API 服务（使用 `.env` 配置）

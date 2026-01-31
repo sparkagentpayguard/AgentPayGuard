@@ -301,13 +301,21 @@ export function prepareAmountForEvaluation(
 }
 
 /**
- * Get AI-enhanced policy configuration
+ * Get AI-enhanced policy configuration (maxRiskScore / autoRejectRiskLevels 可从环境变量读取)
  */
-export function getAIEnhancedPolicy(basePolicy: Policy): Policy {
+export function getAIEnhancedPolicy(
+  basePolicy: Policy,
+  envOverrides?: { AI_MAX_RISK_SCORE?: number; AI_AUTO_REJECT_LEVELS?: string }
+): Policy {
+  const maxRiskScore = envOverrides?.AI_MAX_RISK_SCORE ?? 70;
+  const rawLevels = envOverrides?.AI_AUTO_REJECT_LEVELS?.trim();
+  const autoRejectRiskLevels = rawLevels
+    ? (rawLevels.split(/[,\s]+/).map((s) => s.toLowerCase()) as ('high' | 'medium')[])
+    : (['high'] as ('high' | 'medium')[]);
   return {
     ...basePolicy,
-    maxRiskScore: 70, // Default: reject if risk score > 70
-    requireAIAssessment: false, // Default: AI assessment optional
-    autoRejectRiskLevels: ['high'] // Default: auto-reject high risk
+    maxRiskScore,
+    requireAIAssessment: false,
+    autoRejectRiskLevels: autoRejectRiskLevels.length ? autoRejectRiskLevels : ['high']
   };
 }

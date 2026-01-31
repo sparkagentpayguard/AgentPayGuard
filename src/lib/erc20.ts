@@ -2,6 +2,7 @@ import { ethers } from 'ethers';
 
 const ERC20_ABI = [
   'function decimals() view returns (uint8)',
+  'function balanceOf(address account) view returns (uint256)',
   'function transfer(address to, uint256 amount) returns (bool)'
 ];
 
@@ -13,6 +14,17 @@ export async function getTokenDecimals(provider: ethers.Provider, token: string)
   const c = new ethers.Contract(token, ERC20_ABI, provider);
   const d: number = await c.decimals();
   return Number(d);
+}
+
+/** 查询某地址的 ERC20 余额（用于风控上下文） */
+export async function getTokenBalance(
+  provider: ethers.Provider,
+  token: string,
+  account: string
+): Promise<bigint> {
+  const c = new ethers.Contract(token, ERC20_ABI, provider);
+  const balance: bigint = await c.balanceOf(account);
+  return balance;
 }
 
 export async function transferErc20(args: {

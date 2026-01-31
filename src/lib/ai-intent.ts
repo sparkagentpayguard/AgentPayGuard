@@ -30,11 +30,13 @@ export class AIIntentParser {
   private provider: AIProvider = 'none';
   private model: string = '';
   private cache: SimpleCache<{ intent: PaymentIntent; risk: RiskAssessment }>;
+  /** 按 (recipient, amount, purpose) 的短时缓存，避免同一笔支付重复评估 */
+  private intentCache: SimpleCache<{ intent: PaymentIntent; risk: RiskAssessment }>;
 
   constructor() {
     this.env = loadEnv();
-    // Cache AI responses for 5 minutes (300 seconds)
     this.cache = new SimpleCache(300);
+    this.intentCache = new SimpleCache(300);
     
     // 确定使用哪个API提供商
     this.provider = this.determineProvider();
@@ -250,8 +252,8 @@ Example inputs:
   async parseAndAssessRisk(userMessage: string, context?: {
     historicalPayments?: Array<{recipient: string, amount: number, timestamp: Date}>;
     walletBalance?: number;
+    spentToday?: number;
   }): Promise<{ intent: PaymentIntent; risk: RiskAssessment }> {
-    // Check cache first (5 minute TTL)
     const cacheKey = hashString(userMessage + JSON.stringify(context || {}));
     const cached = this.cache.get(cacheKey);
     if (cached) {
@@ -259,101 +261,43 @@ Example inputs:
       return cached;
     }
 
+    let intent: PaymentIntent;
+    if (this.isEnabled() && this.openai) {
+      intent = await this.parsePaymentIntent(userMessage);
+    } else {
+      intent = this.fallbackParse(userMessage);
+    }
+
+    const intentCacheKey = hashString(
+      `${intent.recipient}|${intent.amountNumber}|${intent.purpose}`
+    );
+    const cachedByIntent = this.intentCache.get(intentCacheKey);
+    if (cachedByIntent) {
+      console.log('[AI] Cache hit for intent (recipient, amount, purpose)');
+      this.cache.set(cacheKey, { intent, risk: cachedByIntent.risk });
+      return { intent, risk: cachedByIntent.risk };
+    }
+
     if (!this.isEnabled() || !this.openai) {
-      const intent = this.fallbackParse(userMessage);
       const risk = this.fallbackRiskAssessment(intent);
+      this.cache.set(cacheKey, { intent, risk });
+      this.intentCache.set(intentCacheKey, { intent, risk });
       return { intent, risk };
     }
 
     try {
-      const contextStr = context ? JSON.stringify(context, null, 2) : 'No additional context';
-      
-      const systemPrompt = `You are a payment intent parser and risk assessment AI.
-Parse the natural language payment request AND assess its risk in a single response.
-
-Output JSON with structure:
-{
-  "intent": {
-    "recipient": "0x... or 'unknown'",
-    "amount": "100 USDC",
-    "amountNumber": 100,
-    "currency": "USDC|USDT|ETH|etc",
-    "purpose": "brief description",
-    "confidence": 0.0-1.0,
-    "riskLevel": "low|medium|high",
-    "reasoning": "brief reasoning"
-  },
-  "risk": {
-    "score": 0-100,
-    "level": "low|medium|high",
-    "reasons": ["reason1", "reason2"],
-    "recommendations": ["recommendation1", "recommendation2"]
-  }
-}
-
-Intent parsing rules:
-- If address is not specified, use "unknown"
-- Default currency is USDC unless specified
-- Extract purpose from context
-
-Risk assessment considerations:
-- Amount size relative to typical payments
-- Recipient address format and validity
-- Payment purpose clarity
-- Historical payment patterns (if provided)
-- Wallet balance (if provided)
-
-Example inputs:
-- "Pay 100 USDC to 0x742d35Cc6634C0532925a3b844Bc9e0BB0A8E2D3 for server hosting"
-- "Send 0.5 ETH to my supplier"
-- "Transfer $50 to vendor for office supplies"`;
-
-      const userPrompt = `Payment request: "${userMessage}"
-
-Additional context:
-${contextStr}
-
-Parse the intent and assess the risk.`;
-
-      const completion = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.1,
-        response_format: { type: "json_object" }
-      });
-
-      const content = completion.choices[0]?.message?.content;
-      if (!content) {
-        throw new Error('No response from AI');
-      }
-
-      const parsed = JSON.parse(content);
-      
-      const result = {
-        intent: {
-          ...parsed.intent,
-          parsedSuccessfully: true,
-          riskLevel: parsed.intent.riskLevel.toLowerCase() as 'low' | 'medium' | 'high'
-        },
-        risk: {
-          ...parsed.risk,
-          level: parsed.risk.level.toLowerCase() as 'low' | 'medium' | 'high'
-        }
-      };
-      
-      // Cache the result for 5 minutes
+      const risk = await this.assessRisk(intent, context);
+      const result = { intent, risk };
       this.cache.set(cacheKey, result);
-      console.log('[AI] Cached result for request:', userMessage.substring(0, 50) + '...');
-      
+      this.intentCache.set(intentCacheKey, result);
       return result;
     } catch (error) {
-      console.error('[AI] Error in combined parse and assess:', error);
-      const intent = this.fallbackParse(userMessage);
+      console.error('[AI] Error in parseAndAssessRisk:', error);
       const risk = this.fallbackRiskAssessment(intent);
-      return { intent, risk };
+      const result = { intent, risk };
+      this.cache.set(cacheKey, result);
+      this.intentCache.set(intentCacheKey, result);
+      return result;
     }
   }
 
@@ -363,6 +307,7 @@ Parse the intent and assess the risk.`;
   async assessRisk(intent: PaymentIntent, context?: {
     historicalPayments?: Array<{recipient: string, amount: number, timestamp: Date}>;
     walletBalance?: number;
+    spentToday?: number;
   }): Promise<RiskAssessment> {
     if (!this.isEnabled() || !this.openai) {
       return this.fallbackRiskAssessment(intent);
@@ -382,11 +327,11 @@ Output JSON with structure:
 }
 
 Considerations:
-- Amount size relative to typical payments
+- Amount size relative to typical payments and wallet balance (if provided)
 - Recipient address format and validity
 - Payment purpose clarity
+- Wallet balance and spent today (if provided) - flag risk if amount exceeds balance or daily spend is high
 - Historical patterns (if available)
-- Time of day, frequency, etc.
 
 Be conservative - it's better to flag medium risk than miss a high risk.`;
 

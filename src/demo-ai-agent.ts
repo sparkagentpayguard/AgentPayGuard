@@ -98,7 +98,10 @@ async function main() {
     dailyLimit: env.DAILY_LIMIT ? ethers.parseUnits(env.DAILY_LIMIT, tokenDecimals) : undefined
   };
 
-  const enhancedPolicy = getAIEnhancedPolicy(basePolicy);
+  const enhancedPolicy = getAIEnhancedPolicy(basePolicy, {
+    AI_MAX_RISK_SCORE: env.AI_MAX_RISK_SCORE,
+    AI_AUTO_REJECT_LEVELS: env.AI_AUTO_REJECT_LEVELS
+  });
   
   console.log('\n⚙️ Policy Configuration:');
   console.log('  Allowlist:', basePolicy.allowlist?.length ? basePolicy.allowlist.join(', ') : '(none)');

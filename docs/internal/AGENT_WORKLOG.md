@@ -20,6 +20,22 @@
 
 ---
 
+### Phase: 低余额测试与前端可测风控（2026-01-31）
+
+**背景**：用户要求小额测试推荐配置、各风控/冻结场景前端可测、AI 风控合并调用与 (recipient, amount, purpose) 缓存、真实余额/近期支付用于风控、maxRiskScore/autoRejectRiskLevels 环境变量、README/TESTING_GUIDE 低余额测试小节、及时更新 worklog 并 push。
+
+**步骤与文件变更**：
+
+1. **.env.example**：增加「小额测试推荐」注释块（AMOUNT/MAX_AMOUNT/DAILY_LIMIT/ALLOWLIST/EXECUTE_ONCHAIN）；增加 AI_MAX_RISK_SCORE、AI_AUTO_REJECT_LEVELS 注释示例。
+2. **API 前端可测**：`src/server.ts` 新增 GET `/api/freeze?address=0x...`，返回 `{ ok, address, isFrozen }`；首页与日志中列出 /api/freeze。
+3. **AI 风控**：`src/lib/ai-intent.ts` 增加 intentCache（按 recipient|amountNumber|purpose 短时缓存）；parseAndAssessRisk 先按请求缓存、再按意图缓存，避免同一笔支付重复评估；assessRisk 的 context 支持 spentToday；`src/lib/erc20.ts` 新增 getTokenBalance；`src/server.ts` 的 /api/ai-pay 从链上读取钱包 token 余额、从 state 读取 spentToday，传入 parseAndAssessRisk/context。
+4. **AI 阈值可配置**：`src/lib/config.ts` 增加 AI_MAX_RISK_SCORE、AI_AUTO_REJECT_LEVELS；`src/lib/policy.ts` 的 getAIEnhancedPolicy(basePolicy, envOverrides) 从环境变量读取；server、demo-ai-agent 传入 env。
+5. **文档**：`docs/guides/TESTING_GUIDE.md` 增加「前端可测风控场景（Web UI）」表（白名单/单笔超限/日限额/冻结/GET /api/freeze、GET /api/policy）与「低余额测试（1 USDT + 0.3 KITE）」小节（推荐配置、如何覆盖各场景、资源链接）；`README.md` 在「测试准备」下增加低余额测试与前端可测说明并链到 TESTING_GUIDE。
+
+**验证**：`pnpm typecheck` 0 errors。
+
+---
+
 ### 运行命令
 
 ```bash
