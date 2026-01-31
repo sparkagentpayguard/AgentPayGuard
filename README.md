@@ -194,6 +194,9 @@ pnpm demo:ai-agent "Pay 10 USDC to 0xd2d45ef2f2ddaffc8c8bc03cedc4f55fb9e97e2b"
 
 **单次测试最低消耗**：约 0.01～0.05 KITE（gas）+ 你设置的 `AMOUNT`（默认 0.001 USDT/USDC）。
 
+**低余额测试（约 1 USDT + 0.3 KITE）**：  
+可用小额配置（AMOUNT=0.001、MAX_AMOUNT=0.1、DAILY_LIMIT=0.002）配合**干跑**覆盖大部分风控；真实发链仅 1～2 笔验证日限额即可。各风控与冻结场景均支持**前端可测**（PAY 页 + GET /api/policy、GET /api/freeze）。详见 [TESTING_GUIDE - 低余额测试](docs/guides/TESTING_GUIDE.md#低余额测试1-usdt--03-kite) 与 [前端可测风控场景](docs/guides/TESTING_GUIDE.md#前端可测风控场景web-ui)。
+
 ### 前端 + API 联调（通过 Web UI 发起支付）
 
 1. **主仓**：在项目根目录启动 API 服务（使用 `.env` 配置）
@@ -267,6 +270,18 @@ AA 账户地址由你的 **Owner EOA**（`.env` 里 `PRIVATE_KEY` 对应的地�
 | **从 AA 转回 EOA** | 用 **AA 模式**：`.env` 里 `PAYMENT_MODE=aa`，`RECIPIENT` 设为你的 **Owner EOA 地址**，`ALLOWLIST` 里包含该 EOA 地址，`EXECUTE_ONCHAIN=1`，执行 `pnpm demo:pay`。钱从 AA 账户转回你的 EOA。 |
 
 AA 账户需先有足够 **KITE（gas）** 和 **稳定币** 才能成功发起 AA 转账；若之前 AA 交易 revert，多半是 AA 账户余额不足，按上表先用 EOA 给 AA 充值再试。
+
+---
+
+## 多签钱包说明（测试网与 Ash Wallet）
+
+当前 **Kite AI 官方推荐的 Ash Wallet** 在测试网环境下**无法选择 Kite AI Testnet**，钱包网络列表中仅提供 Kite AI 主网，没有「Kite AI Testnet」选项，因此无法在测试网上使用 Ash 创建/管理多签。下图为 Ash 钱包网络列表截图（仅见 Kite AI Mainnet，无 Testnet）：
+
+![Ash 钱包网络列表（无 Kite AI Testnet）](docs/assets/ash-wallet-networks.png)
+
+为此，本团队在测试网阶段采用**自建多签方案**（基于 Safe 兼容的合约，2/3 阈值），用于链上冻结、提案与风控演示。
+
+**后续上主网时**，可切换为 Kite 官方推荐的 **Ash Wallet** 进行多签与支付流程。
 
 ---
 

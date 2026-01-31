@@ -1,7 +1,7 @@
 /**
  * AgentPayGuard API：供前端调用的支付与策略接口
  * 运行：pnpm server（需 .env 中 EXECUTE_ONCHAIN=1 或请求体 executeOnchain=true 才会真实发链上交易）
- * 启动时仅加载 dotenv+http，config/policy/run-pay 延后加载，避免进程立即退出。
+ * 优化：预加载模块 + AIIntentParser 实例缓存 + 并行操作
  */
 import 'dotenv/config';
 import http from 'node:http';
@@ -18,6 +18,21 @@ process.on('unhandledRejection', (reason, p) => {
 console.error('[AgentPayGuard API] starting...');
 const PORT = Number(process.env.API_PORT ?? process.env.PORT ?? 3456);
 const CORS_ORIGIN = process.env.CORS_ORIGIN ?? '*';
+
+// Preload modules at startup to avoid cold start delays
+console.error('[AgentPayGuard API] preloading modules...');
+const { ethers } = await import('ethers');
+const { loadEnv } = await import('./lib/config.js');
+const { AIIntentParser } = await import('./lib/ai-intent.js');
+const { parseAllowlist, evaluatePolicyWithAI, getAIEnhancedPolicy, prepareAmountForEvaluation } = await import('./lib/policy.js');
+const { getTokenDecimals, getTokenBalance } = await import('./lib/erc20.js');
+const { readSpentToday, addSpentToday } = await import('./lib/state.js');
+const { runPay } = await import('./lib/run-pay.js');
+
+// Cache AIIntentParser instance to avoid recreating OpenAI client on each request
+const env = loadEnv();
+const cachedAIParser = new AIIntentParser();
+console.error('[AgentPayGuard API] modules preloaded, AI parser initialized');
 
 function parseBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
@@ -79,6 +94,25 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (path === '/api/freeze' && req.method === 'GET') {
+    try {
+      const address = url.searchParams.get('address');
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        send(res, 400, { ok: false, error: 'invalid_address', message: 'Query param address (0x...) is required' });
+        return;
+      }
+      const FREEZE_CONTRACT = '0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719';
+      const FREEZE_ABI = ['function isFrozen(address account) view returns (bool)'];
+      const provider = new ethers.JsonRpcProvider(env.RPC_URL, env.CHAIN_ID);
+      const contract = new ethers.Contract(FREEZE_CONTRACT, FREEZE_ABI, provider);
+      const isFrozen: boolean = await contract.isFrozen(address);
+      send(res, 200, { ok: true, address, isFrozen });
+    } catch (err) {
+      send(res, 500, { error: err instanceof Error ? err.message : 'Failed to check freeze status' });
+    }
+    return;
+  }
+
   if (path === '/api/pay' && req.method === 'POST') {
     try {
       const { runPay } = await import('./lib/run-pay.js');
@@ -108,14 +142,6 @@ const server = http.createServer(async (req, res) => {
 
   if (path === '/api/ai-pay' && req.method === 'POST') {
     try {
-      const { ethers } = await import('ethers');
-      const { loadEnv } = await import('./lib/config.js');
-      const { AIIntentParser } = await import('./lib/ai-intent.js');
-      const { parseAllowlist, evaluatePolicyWithAI, getAIEnhancedPolicy, prepareAmountForEvaluation } = await import('./lib/policy.js');
-      const { getTokenDecimals } = await import('./lib/erc20.js');
-      const { readSpentToday, addSpentToday } = await import('./lib/state.js');
-      const { runPay } = await import('./lib/run-pay.js');
-      
       const body = await parseBody(req);
       const request = typeof body.request === 'string' ? body.request : '';
       const executeOnchain = body.executeOnchain === true || body.executeOnchain === 'true' || body.executeOnchain === '1';
@@ -125,17 +151,27 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       
-      const env = loadEnv();
-      const provider = new ethers.JsonRpcProvider(env.RPC_URL, env.CHAIN_ID);
-      const aiParser = new AIIntentParser();
-      
-      if (!aiParser.isEnabled()) {
+      if (!cachedAIParser.isEnabled()) {
         send(res, 400, { ok: false, error: 'ai_disabled', message: 'AI features disabled. Set ENABLE_AI_INTENT=1 and configure API key.' });
         return;
       }
       
-      // Parse intent
-      const intent = await aiParser.parsePaymentIntent(request);
+      const provider = new ethers.JsonRpcProvider(env.RPC_URL, env.CHAIN_ID);
+      const tokenDecimalsForContext = env.TOKEN_DECIMALS ?? await getTokenDecimals(provider, env.SETTLEMENT_TOKEN_ADDRESS);
+      let walletBalanceHuman = 0;
+      if (env.PRIVATE_KEY) {
+        const wallet = new ethers.Wallet(env.PRIVATE_KEY);
+        const balanceWei = await getTokenBalance(provider, env.SETTLEMENT_TOKEN_ADDRESS, await wallet.getAddress());
+        walletBalanceHuman = Number(ethers.formatUnits(balanceWei, tokenDecimalsForContext));
+      }
+      const spentTodayForContext = await readSpentToday(env.STATE_PATH);
+      const spentTodayHuman = Number(ethers.formatUnits(spentTodayForContext, tokenDecimalsForContext));
+      const context = {
+        historicalPayments: [],
+        walletBalance: walletBalanceHuman,
+        spentToday: spentTodayHuman
+      };
+      const { intent, risk: aiAssessment } = await cachedAIParser.parseAndAssessRisk(request, context);
       
       if (!intent.parsedSuccessfully) {
         send(res, 400, { ok: false, error: 'parse_failed', message: 'Failed to parse payment intent', intent });
@@ -149,8 +185,11 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       
-      // Get token decimals and convert amount
-      const tokenDecimals = env.TOKEN_DECIMALS ?? (await getTokenDecimals(provider, env.SETTLEMENT_TOKEN_ADDRESS));
+      // OPTIMIZATION 2: Parallelize independent operations (token decimals + spent today)
+      // These don't depend on each other, so run them concurrently
+      const tokenDecimals = env.TOKEN_DECIMALS ?? await getTokenDecimals(provider, env.SETTLEMENT_TOKEN_ADDRESS);
+      const spentToday = await readSpentToday(env.STATE_PATH);
+      
       const amountInTokenUnits = prepareAmountForEvaluation(intent.amountNumber, intent.currency, tokenDecimals);
       
       // Prepare policy
@@ -159,11 +198,44 @@ const server = http.createServer(async (req, res) => {
         maxAmount: env.MAX_AMOUNT ? ethers.parseUnits(env.MAX_AMOUNT, tokenDecimals) : undefined,
         dailyLimit: env.DAILY_LIMIT ? ethers.parseUnits(env.DAILY_LIMIT, tokenDecimals) : undefined
       };
-      const enhancedPolicy = getAIEnhancedPolicy(basePolicy);
-      const spentToday = await readSpentToday(env.STATE_PATH);
+      const enhancedPolicy = getAIEnhancedPolicy(basePolicy, {
+        AI_MAX_RISK_SCORE: env.AI_MAX_RISK_SCORE,
+        AI_AUTO_REJECT_LEVELS: env.AI_AUTO_REJECT_LEVELS
+      });
       const FREEZE_CONTRACT = '0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719';
       
-      // Evaluate policy with AI
+      // OPTIMIZATION 3: Use pre-computed AI assessment instead of calling AI again
+      // Check AI risk thresholds first (fast, no network call)
+      if (enhancedPolicy.maxRiskScore !== undefined && aiAssessment.score > enhancedPolicy.maxRiskScore) {
+        send(res, 200, {
+          ok: false,
+          intent,
+          risk: aiAssessment,
+          policy: {
+            ok: false,
+            code: 'AI_RISK_TOO_HIGH',
+            message: `AI风险评估分数过高：${aiAssessment.score} > ${enhancedPolicy.maxRiskScore}。原因：${aiAssessment.reasons.join('; ')}`
+          }
+        });
+        return;
+      }
+      
+      const riskLevel = aiAssessment.level as 'high' | 'medium' | 'low';
+      if (enhancedPolicy.autoRejectRiskLevels?.includes(riskLevel as 'high' | 'medium')) {
+        send(res, 200, {
+          ok: false,
+          intent,
+          risk: aiAssessment,
+          policy: {
+            ok: false,
+            code: 'AI_RISK_TOO_HIGH',
+            message: `AI风险评估等级为 ${aiAssessment.level}，根据策略自动拒绝。原因：${aiAssessment.reasons.join('; ')}`
+          }
+        });
+        return;
+      }
+      
+      // Evaluate traditional policy rules (allowlist, limits, freeze check)
       const decision = await evaluatePolicyWithAI({
         policy: enhancedPolicy,
         recipient: finalRecipient,
@@ -173,9 +245,12 @@ const server = http.createServer(async (req, res) => {
         freezeContractAddress: FREEZE_CONTRACT,
         naturalLanguageRequest: request,
         paymentIntent: intent,
-        aiParser,
-        context: { historicalPayments: [], walletBalance: 10000 }
+        aiParser: cachedAIParser,
+        context: { historicalPayments: [], walletBalance: context.walletBalance }
       });
+      
+      // Override AI assessment with our pre-computed one
+      decision.aiAssessment = aiAssessment;
       
       // Return result with intent, risk, and policy decision
       if (!decision.baseDecision.ok) {
@@ -245,6 +320,7 @@ const server = http.createServer(async (req, res) => {
 <ul>
   <li><a href="/api/health">GET /api/health</a> - 健康检查</li>
   <li><a href="/api/policy">GET /api/policy</a> - 策略（白名单/限额）</li>
+  <li><a href="/api/freeze?address=0x...">GET /api/freeze?address=0x...</a> - 查询地址是否被链上冻结（前端可测）</li>
   <li>POST /api/pay - 发起支付（需用前端或 curl 调用）</li>
   <li>POST /api/ai-pay - AI 自然语言支付（需用前端或 curl 调用）</li>
 </ul>
@@ -259,6 +335,7 @@ server.listen(PORT, () => {
   console.log(`[AgentPayGuard API] http://localhost:${PORT}`);
   console.log('  GET  /api/health - 健康检查');
   console.log('  GET  /api/policy  - 策略（白名单/限额）');
+  console.log('  GET  /api/freeze  - 查询地址冻结状态（?address=0x...）');
   console.log('  POST /api/pay     - 发起支付（body: recipient?, amount?, paymentMode?, executeOnchain?）');
   console.log('  POST /api/ai-pay  - AI 自然语言支付（body: request, executeOnchain?）');
 });

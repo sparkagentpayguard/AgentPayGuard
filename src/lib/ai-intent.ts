@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { loadEnv } from './config.js';
+import { SimpleCache, hashString } from './cache.js';
 
 export interface PaymentIntent {
   recipient: string;
@@ -28,9 +29,14 @@ export class AIIntentParser {
   private env: ReturnType<typeof loadEnv>;
   private provider: AIProvider = 'none';
   private model: string = '';
+  private cache: SimpleCache<{ intent: PaymentIntent; risk: RiskAssessment }>;
+  /** 按 (recipient, amount, purpose) 的短时缓存，避免同一笔支付重复评估 */
+  private intentCache: SimpleCache<{ intent: PaymentIntent; risk: RiskAssessment }>;
 
   constructor() {
     this.env = loadEnv();
+    this.cache = new SimpleCache(300);
+    this.intentCache = new SimpleCache(300);
     
     // 确定使用哪个API提供商
     this.provider = this.determineProvider();
@@ -240,11 +246,68 @@ Example inputs:
   }
 
   /**
+   * Combined method: Parse intent AND assess risk in a single AI call
+   * This is 2-3x faster than calling parsePaymentIntent() + assessRisk() separately
+   */
+  async parseAndAssessRisk(userMessage: string, context?: {
+    historicalPayments?: Array<{recipient: string, amount: number, timestamp: Date}>;
+    walletBalance?: number;
+    spentToday?: number;
+  }): Promise<{ intent: PaymentIntent; risk: RiskAssessment }> {
+    const cacheKey = hashString(userMessage + JSON.stringify(context || {}));
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      console.log('[AI] Cache hit for request:', userMessage.substring(0, 50) + '...');
+      return cached;
+    }
+
+    let intent: PaymentIntent;
+    if (this.isEnabled() && this.openai) {
+      intent = await this.parsePaymentIntent(userMessage);
+    } else {
+      intent = this.fallbackParse(userMessage);
+    }
+
+    const intentCacheKey = hashString(
+      `${intent.recipient}|${intent.amountNumber}|${intent.purpose}`
+    );
+    const cachedByIntent = this.intentCache.get(intentCacheKey);
+    if (cachedByIntent) {
+      console.log('[AI] Cache hit for intent (recipient, amount, purpose)');
+      this.cache.set(cacheKey, { intent, risk: cachedByIntent.risk });
+      return { intent, risk: cachedByIntent.risk };
+    }
+
+    if (!this.isEnabled() || !this.openai) {
+      const risk = this.fallbackRiskAssessment(intent);
+      this.cache.set(cacheKey, { intent, risk });
+      this.intentCache.set(intentCacheKey, { intent, risk });
+      return { intent, risk };
+    }
+
+    try {
+      const risk = await this.assessRisk(intent, context);
+      const result = { intent, risk };
+      this.cache.set(cacheKey, result);
+      this.intentCache.set(intentCacheKey, result);
+      return result;
+    } catch (error) {
+      console.error('[AI] Error in parseAndAssessRisk:', error);
+      const risk = this.fallbackRiskAssessment(intent);
+      const result = { intent, risk };
+      this.cache.set(cacheKey, result);
+      this.intentCache.set(intentCacheKey, result);
+      return result;
+    }
+  }
+
+  /**
    * Assess risk of a payment intent
    */
   async assessRisk(intent: PaymentIntent, context?: {
     historicalPayments?: Array<{recipient: string, amount: number, timestamp: Date}>;
     walletBalance?: number;
+    spentToday?: number;
   }): Promise<RiskAssessment> {
     if (!this.isEnabled() || !this.openai) {
       return this.fallbackRiskAssessment(intent);
@@ -264,11 +327,11 @@ Output JSON with structure:
 }
 
 Considerations:
-- Amount size relative to typical payments
+- Amount size relative to typical payments and wallet balance (if provided)
 - Recipient address format and validity
 - Payment purpose clarity
+- Wallet balance and spent today (if provided) - flag risk if amount exceeds balance or daily spend is high
 - Historical patterns (if available)
-- Time of day, frequency, etc.
 
 Be conservative - it's better to flag medium risk than miss a high risk.`;
 

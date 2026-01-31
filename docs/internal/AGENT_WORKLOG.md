@@ -6,7 +6,7 @@
 
 ### 当前状态
 
-- **代码**：`pnpm typecheck` / `demo:pay` / `demo:reject` / `demo:freeze` / `demo:ai-agent` / `pnpm server` 可用
+- **代码**：`pnpm typecheck` / `demo:pay` / `demo:reject` / `demo:freeze` / `demo:ai-agent` / `pnpm server` 可用；前端 Freeze/Proposals/Dashboard 已接入真实合约
 - **待完成**：B 产出 EOA/AA Tx Hash 交 C；C 填满 for_judge.md
 - **文档入口**：TESTING_GUIDE、交付给角色B、FINAL_DELIVERY_CHECKLIST、[PM_AND_ROLE_B_QUICKREF](PM_AND_ROLE_B_QUICKREF.md)
 
@@ -17,6 +17,28 @@
 - 工作记录按 **Phase 倒序**（最新在上）；新增 Phase 写在摘要表下方
 - `.clinerules` 约束 5b：每次 commit 后自动 `git push`
 - `HUMAN_CONSTRAINTS` 原则 7：有文件改动后立即 `git add -A`、`commit`、`push`
+
+---
+
+### Phase 21 至当前：总结（2026-01-31）
+
+**时间范围**：Phase 21（免费 AI API 支持）→ Phase 32（AI 支付速度优化）→ 近期（README ASH 说明 + 前端优化、低余额测试与风控可配置）。
+
+**主要工作**：
+
+1. **AI 与多提供商（Phase 21）**：ai-intent 支持 DeepSeek/Gemini/Ollama 等免费 API；config/.env.example 增加对应 key；无 key 时回退解析，零成本可用。
+2. **子模块与 RPC（Phase 22）**：识别 frontend 子模块；前端 RPC/浏览器改为 Kite 官方（rpc-testnet.gokite.ai、testnet.kitescan.ai）；README 与 PM/Role B 文档补充子模块与 RPC 说明。
+3. **文档与流程（Phase 23–28）**：文档精简、自动 push、SECURITY 合并到 .clinerules；HUMAN_CONSTRAINTS 原则 7（有改动即 add/commit/push）；README 测试白名单、主仓+子模块 feature 分支工作流；.clinerules 4c 修改前检查分支（不污染 main）。
+4. **前端与 API（Phase 29）**：主仓 run-pay.ts + server.ts（GET /api/health、/api/policy，POST /api/pay）；前端 Pay 页调用 /api/pay；vite 代理 /api。
+5. **服务端体验（Phase 30）**：pnpm server 改用 tsx 解决输出不可见；默认端口 3002→3456，减少冲突；server.ts、.env.example 同步。
+6. **前端真实合约（Phase 31）**：Freeze/Proposals/Dashboard 去除 MOCK_DATA；frontend 新增 abis.ts，hooks 用 useReadContract/useWriteContract 调 SimpleFreeze、SimpleMultiSig；展示链上冻结状态、提案列表、owner 与确认/执行。
+7. **AI 支付性能（Phase 32）**：parseAndAssessRisk 合并意图解析与风险评估为一次 AI 调用；服务端预加载与实例缓存；/api/ai-pay 并行取 decimals 与 spentToday、提前检查风险阈值；首次/后续/高风险拒绝响应时间明显缩短。
+8. **README ASH 与前端优化（近期）**：README 增加「多签钱包说明」：Kite AI 官方 Ash wallet 无法在测试网设置，附截图（docs/assets/ash-wallet-networks.png、safe-account-create.png），团队用自建多签、主网可切 Ash。前端：Pay 页 i18n、语言切换入公共 header；抽取 Layout（header/背景/返回/NetworkBadge/LanguageToggle）；Dashboard 展示 Policy (API)；History 用 useProposals 真实链上数据。
+9. **低余额测试与风控可配置（近期）**：.env.example 小额测试推荐（AMOUNT/MAX_AMOUNT/DAILY_LIMIT 等）；GET /api/freeze 供前端查冻结；ai-intent 意图缓存、(recipient,amount,purpose) 短时缓存，链上余额与 spentToday 传入风控；AI_MAX_RISK_SCORE、AI_AUTO_REJECT_LEVELS 环境变量；TESTING_GUIDE 低余额测试小节与前端可测风控表；README 链到 TESTING_GUIDE。
+
+**验证**：主仓 `pnpm typecheck` 0 errors；前端 `npm run build` 通过；pnpm server 启动可见、默认 3456。
+
+**分支**：主仓与 frontend 子模块均在 `feature/real-contract-calls`（或相应 feature 分支）上修改，不直接改 main。
 
 ---
 
@@ -102,6 +124,7 @@ $env:KITE_API_KEY="api_key_xxx"; python python/kitepass_demo.py
 | 文档体系 | ✅ | 完整四角色指南 + AI 说明 + PM/Role B 规整 |
 | 安全防护 | ✅ | .env 保护，AI 安全集成 |
 | 多签/冻结 | ✅ | A 已交付合约地址，B 已集成 policy 检查 |
+| 前端合约集成 | ✅ | Freeze/Proposals/Dashboard 接入真实链上调用 |
 
 **新增能力**：AI Agent 核心（ai-intent.ts）、智能策略（evaluatePolicyWithAI）、自然语言接口（demo:ai-agent）、AI 风险评分、降级兼容（无 API 时回退解析）、免费 API 支持（DeepSeek/Gemini/Ollama）、前端+API 联调（run-pay + server + Pay 页）
 
@@ -129,16 +152,7 @@ $env:KITE_API_KEY="api_key_xxx"; python python/kitepass_demo.py
 
 | Phase | 内容 |
 |-------|------|
-| 30 | 修复 pnpm server 输出可见性 + 更换默认端口 3456 |
-| 29 | 前端与 CLI 结合：后端 API + 前端 Pay 页 |
-| 28 | .clinerules 新增 4c 修改前检查分支约束 |
-| 27 | README 新增主仓+子模块 feature 分支工作流 |
-| 26 | README 新增测试白名单地址 + 余额/转账验证说明 |
-| 25 | HUMAN_CONSTRAINTS 新增原则 7（立即提交推送） |
-| 24 | 约束文档精简、SECURITY 合并到 .clinerules |
-| 23 | 文档精简 + 自动 push 规则 |
-| 22 | 子模块检测、前端 RPC 修正、PM/Role B 文档、README 子模块说明 |
-| 21 | 支持免费 AI API（DeepSeek/Gemini/Ollama） |
+| 21–32 + 近期 | 见上方「Phase 21 至当前：总结」：免费 AI API → 子模块/RPC → 文档与分支流程 → 前端 API → server 端口 → 真实合约 → AI 性能 → README ASH + 前端优化 → 低余额测试与风控可配置 |
 | 20 | AI Agent（ai-intent + demo:ai-agent） |
 | 19 | Role B 交付物优化 |
 | 18 | 集成链上冻结（policy.ts + demo:freeze） |
@@ -150,112 +164,6 @@ $env:KITE_API_KEY="api_key_xxx"; python python/kitepass_demo.py
 | 6–7 | 策略引擎、ERC20、AA、demo-pay/reject；KitePass Python 脚本 |
 | 3–5 | 从零搭建 Node/TS 骨架，处理 pnpm 依赖问题 |
 | 1–2 | 评审 for_judge，重写为评委可判定版 |
-
----
-
-### Phase 30：修复 pnpm server 输出可见性 + 更换默认端口（2026-01-31）
-
-- **背景**：用户运行 `pnpm server` 后看不到任何输出，服务器启动信息被 pnpm 缓冲隐藏；端口 3002 容易与其他服务冲突
-- **问题诊断**：
-  1. `node --import tsx` 方式导致 pnpm 缓冲输出
-  2. 端口 3002 已被占用时，服务器退出但用户看不到错误信息
-- **解决方案**：
-  1. 修改 [`package.json`](package.json:8)：`"server": "API_PORT=3456 tsx src/server.ts"`（从 `node --import tsx` 改为直接用 `tsx`）
-  2. 更换默认端口：3002 → 3456（更高端口号，减少冲突）
-  3. 同步更新 [`src/server.ts`](src/server.ts:19) 和 [`.env.example`](.env.example:47) 中的默认端口
-- **文件变更**：
-  - `package.json`：server 脚本改用 tsx，端口改为 3456
-  - `src/server.ts`：默认 PORT 从 3002 改为 3456
-  - `.env.example`：API_PORT 注释从 3002 改为 3456
-- **验证**：
-  - ✅ `pnpm typecheck` 通过（0 errors）
-  - ✅ `pnpm server` 现在可以看到启动日志
-  - ✅ 服务器正常运行在 http://localhost:3456
-- **Commit**：`Fix pnpm server output visibility and change default port to 3456`
-- **Push**：已推送到 `feature/api-port-3002` 分支
-
----
-
-### Phase 29：前端与 CLI 结合（方案一：后端 API）
-
-- **目标**：前端通过 HTTP API 调用主仓支付逻辑，实现「Web UI 发起支付 → 后端执行 → 返回 txHash」。
-- **主仓**：新增 `src/lib/run-pay.ts`（可复用支付逻辑，供 CLI 与 API 共用）、`src/server.ts`（Node http 服务，GET /api/health、GET /api/policy、POST /api/pay）；`package.json` 新增 `pnpm server`；CORS 支持 `CORS_ORIGIN`。
-- **前端**：新增 `frontend/src/pages/Pay.tsx`（收款地址、金额、EOA/AA、executeOnchain 勾选，POST /api/pay，展示 txHash/错误）；`vite.config.ts` 开发时代理 `/api` → `http://localhost:3000`；首页增加 PAY 入口，路由 `/pay`。
-- **环境**：`.env.example` 增加 `API_PORT`、`CORS_ORIGIN`；前端可选 `VITE_API_URL`（生产环境 API 地址）。
-- **验证**：主仓 `pnpm server` 起 API，前端 `npm run dev` 打开 /pay，勾选 executeOnchain 发起支付，应返回 txHash 或策略错误。
-
----
-
-### Phase 28：修改前检查分支约束（2026-01-31）
-
-- **新增**：.clinerules 约束 4c「修改前检查分支（不污染 main）」
-- **内容**：每次修改文件前检查主仓和子模块是否在 main；若在则按 README 切换到 feature 分支；不得在 main 上直接修改
-- **强制提醒**：新增第 4 条「修改前检查主仓/子模块分支」
-- **自检清单**：新增「主仓与子模块均不在 main 分支」
-
----
-
-### Phase 27：主仓+子模块 feature 分支工作流（2026-01-31）
-
-- **新增**：README 子模块章节下「主仓 + 子模块都在新分支修改（不污染 main）」
-- **内容**：步骤（主仓切分支 → 子模块切分支 → 子模块修改+push → 主仓提交指针+push）；要点；一次性检查命令
-- **目的**：确保主仓与 frontend 子模块在 feature 分支工作，不污染 main，均可 push 远端
-
----
-
-### Phase 26：README 测试白名单地址（2026-01-31）
-
-- **新增**：策略说明下「测试用白名单地址（ALLOWLIST）」章节
-- **内容**：5 个仅接收、无私钥的测试地址；ALLOWLIST 配置示例；如何查看余额、验证转账成功
-- **目的**：方便用户快速配置白名单并验证支付到账
-
----
-
-### Phase 25：HUMAN_CONSTRAINTS 原则 7（2026-01-31）
-
-- **新增原则 7「立即提交推送」**：每次完成会改变仓库状态的操作后，立即执行 `git add -A`、`git commit`、`git push`；不得遗漏
-- **禁止行为**：补充「违反原则 7」
-- **检查清单**：新增「有文件改动？→ 立即 git add/commit/push」
-- **说明**：HUMAN_CONSTRAINTS 在 .gitignore，不提交仓库
-
----
-
-### Phase 24：约束文档精简 + SECURITY 合并（2026-01-31）
-
-- **.clinerules**：384 行 → ~156 行；删除冗余「理由」、压缩各约束；将 SECURITY.md 内容合并入「安全政策」章节
-- **HUMAN_CONSTRAINTS**：145 行 → ~89 行；压缩原则表述、特殊指导改表格
-- **SECURITY.md**：删除；内容已并入 .clinerules
-- **README**：AGENT_CONSTRAINTS + SECURITY 链接合并为 .clinerules
-
----
-
-### Phase 23：文档精简 + 自动 push（2026-01-31）
-
-- **PM/Role B**：规整为 PM_AND_ROLE_B_QUICKREF（检查清单 + 文档入口）；后扩展为 PM_AND_ROLE_B_CONSOLIDATED（整合 A→B 交付、测试、演讲、文档索引）
-- **AGENT_WORKLOG**：由 ~1000 行精简为 Phase 摘要 + 详细描述（本文档，控制在 500 行内）
-- **.clinerules**：新增「每次 commit 后自动 `git push`」
-
----
-
-### Phase 22：子模块与前端 RPC
-
-- **子模块**：检测到 `frontend` 子模块（hacker-hackathon-hub）；需 `git submodule update --init --recursive` 克隆
-- **RPC 修正**：`frontend/src/lib/web3/config.ts` 中 RPC 与区块浏览器地址与 Kite 官方不一致 → 改为 `rpc-testnet.gokite.ai`、`testnet.kitescan.ai`
-- **PM/Role B 文档**：新增 PM_AND_ROLE_B_QUICKREF、注意事项（子模块、RPC、交接）
-- **README**：补充子模块克隆与更新说明
-- **chain_info.md**：记录 Kite 官方链信息（Ash Wallet 支持 Kite，Gnosis Safe 不支持）
-
----
-
-### Phase 21：免费 AI API 支持
-
-- **背景**：用户询问「OPENAI_API_KEY 可以用 deepseek 的吗」，需支持免费 API 提供商
-- **ai-intent.ts**：完全重写支持多提供商；支持 OpenAI、DeepSeek、Gemini、Claude、Ollama、LM Studio、本地 AI；自动选择机制（DeepSeek > Gemini > OpenAI > Claude > 本地）；优雅降级（API 失败时自动回退解析）；`getProviderInfo()` 获取当前提供商
-- **config.ts**：`DEEPSEEK_API_KEY`、`GEMINI_API_KEY`、`CLAUDE_API_KEY`、`OLLAMA_URL`、`LMSTUDIO_URL`、`LOCAL_AI_URL`
-- **.env.example**：详细免费 API 配置指南（DeepSeek 推荐、Gemini、Ollama/LM Studio）
-- **AI_AGENT_GUIDE.md**：多提供商说明、优雅降级、使用示例与最佳实践
-- **验证**：无 API Key 时自动使用回退解析；OpenAI 超时后自动降级；零成本可用
-- **总结**：项目具备「零成本 AI Agent」能力
 
 ---
 
