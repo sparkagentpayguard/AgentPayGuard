@@ -129,6 +129,7 @@ $env:KITE_API_KEY="api_key_xxx"; python python/kitepass_demo.py
 
 | Phase | 内容 |
 |-------|------|
+| 30 | 修复 pnpm server 输出可见性 + 更换默认端口 3456 |
 | 29 | 前端与 CLI 结合：后端 API + 前端 Pay 页 |
 | 28 | .clinerules 新增 4c 修改前检查分支约束 |
 | 27 | README 新增主仓+子模块 feature 分支工作流 |
@@ -149,6 +150,29 @@ $env:KITE_API_KEY="api_key_xxx"; python python/kitepass_demo.py
 | 6–7 | 策略引擎、ERC20、AA、demo-pay/reject；KitePass Python 脚本 |
 | 3–5 | 从零搭建 Node/TS 骨架，处理 pnpm 依赖问题 |
 | 1–2 | 评审 for_judge，重写为评委可判定版 |
+
+---
+
+### Phase 30：修复 pnpm server 输出可见性 + 更换默认端口（2026-01-31）
+
+- **背景**：用户运行 `pnpm server` 后看不到任何输出，服务器启动信息被 pnpm 缓冲隐藏；端口 3002 容易与其他服务冲突
+- **问题诊断**：
+  1. `node --import tsx` 方式导致 pnpm 缓冲输出
+  2. 端口 3002 已被占用时，服务器退出但用户看不到错误信息
+- **解决方案**：
+  1. 修改 [`package.json`](package.json:8)：`"server": "API_PORT=3456 tsx src/server.ts"`（从 `node --import tsx` 改为直接用 `tsx`）
+  2. 更换默认端口：3002 → 3456（更高端口号，减少冲突）
+  3. 同步更新 [`src/server.ts`](src/server.ts:19) 和 [`.env.example`](.env.example:47) 中的默认端口
+- **文件变更**：
+  - `package.json`：server 脚本改用 tsx，端口改为 3456
+  - `src/server.ts`：默认 PORT 从 3002 改为 3456
+  - `.env.example`：API_PORT 注释从 3002 改为 3456
+- **验证**：
+  - ✅ `pnpm typecheck` 通过（0 errors）
+  - ✅ `pnpm server` 现在可以看到启动日志
+  - ✅ 服务器正常运行在 http://localhost:3456
+- **Commit**：`Fix pnpm server output visibility and change default port to 3456`
+- **Push**：已推送到 `feature/api-port-3002` 分支
 
 ---
 
