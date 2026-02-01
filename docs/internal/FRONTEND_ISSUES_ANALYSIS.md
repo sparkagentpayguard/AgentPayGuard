@@ -1,5 +1,7 @@
 ## 前端设计问题分析（功能 + 美观）
 
+**对齐小结（当前）：** Pay、AIPay、Freeze、Proposals、Dashboard、History 与后端 API 及链上合约已对齐：Freeze/Proposals/Dashboard 使用真实合约（useFreezeStatus、useProposals、useMultiSigOwners）；Dashboard 请求 `/api/policy` 展示策略；History 使用 useProposals 展示提案列表。公共 Layout、i18n（含 Pay 页）、语言切换在 header。以下条目为历史问题或可选优化。
+
 ---
 
 ## 功能问题

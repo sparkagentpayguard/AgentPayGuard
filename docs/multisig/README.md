@@ -1,5 +1,7 @@
 # 角色 A 多签钱包交付说明
 
+> **文档分工**：本目录为**中文内部交接**用（交付物清单、部署步骤、操作清单等）。英文评委/开源主文档见：[ROLE_A_GUIDE](../guides/ROLE_A_GUIDE.md)、[PM_AND_ROLE_B_QUICKREF](../internal/PM_AND_ROLE_B_QUICKREF.md)、[FINAL_DELIVERY_CHECKLIST](../internal/FINAL_DELIVERY_CHECKLIST.md)。
+
 **负责人**: huahua (角色 A - 链上)  
 **完成日期**: 2026-01-30  
 **工作时长**: 约 4 小时

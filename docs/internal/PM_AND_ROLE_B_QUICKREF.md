@@ -1,6 +1,7 @@
 # PM & 角色 B 快速参考
 
 > **规整文档**：所有 PM / Role B 相关内容已整合至 [PM_AND_ROLE_B_CONSOLIDATED.md](PM_AND_ROLE_B_CONSOLIDATED.md)，按用途分类。本文档为精简入口。
+> **文档分工**：中文内部交接与多签交付物见 [docs/multisig/](../multisig/README.md)。
 
 ---
 
