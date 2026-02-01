@@ -1,4 +1,6 @@
 import OpenAI from 'openai';
+import { validateAndSanitizeInput } from './prompt-injection.js';
+import { withRetry, AI_API_RETRY_OPTIONS } from './retry.js';
 
 export type ChatAction = 'payment' | 'query_balance' | 'query_policy' | 'query_freeze' | 'conversation';
 
@@ -60,22 +62,50 @@ export class AIChatOrchestrator {
   }
 
   async classify(message: string, history: ChatHistoryMessage[]): Promise<ChatClassification> {
+    // 验证和清理输入
+    let sanitizedMessage: string;
     try {
+      sanitizedMessage = validateAndSanitizeInput(message, {
+        maxLength: 1000,
+        allowInjection: false
+      });
+    } catch (error) {
+      console.error('[AIChatOrchestrator] Input validation failed:', error);
+      // 如果输入验证失败，使用回退分类器
+      return this.fallbackClassify(message);
+    }
+
+    try {
+      // 清理历史消息中的输入
+      const sanitizedHistory = history.slice(-10).map(h => ({
+        role: h.role as 'user' | 'assistant',
+        content: h.role === 'user' 
+          ? validateAndSanitizeInput(h.content, { maxLength: 1000, allowInjection: true }) // 历史消息允许注入（仅记录）
+          : h.content,
+      }));
+
       const messages: OpenAI.ChatCompletionMessageParam[] = [
         { role: 'system', content: SYSTEM_PROMPT },
-        ...history.slice(-10).map(h => ({
-          role: h.role as 'user' | 'assistant',
-          content: h.content,
-        })),
-        { role: 'user', content: message },
+        ...sanitizedHistory,
+        { role: 'user', content: sanitizedMessage },
       ];
 
-      const completion = await this.openai.chat.completions.create({
-        model: this.model,
-        messages,
-        temperature: 0.3,
-        response_format: { type: 'json_object' },
-      });
+      const completion = await withRetry(
+        async () => {
+          return await this.openai.chat.completions.create({
+            model: this.model,
+            messages,
+            temperature: 0.3,
+            response_format: { type: 'json_object' },
+          });
+        },
+        {
+          ...AI_API_RETRY_OPTIONS,
+          onRetry: (attempt: number, error: Error) => {
+            console.warn(`[AIChatOrchestrator] Retry attempt ${attempt}: ${error.message}`);
+          }
+        }
+      );
 
       const content = completion.choices[0]?.message?.content;
       if (!content) throw new Error('Empty LLM response');
@@ -88,7 +118,7 @@ export class AIChatOrchestrator {
         queryAddress: parsed.queryAddress,
       };
     } catch (err) {
-      console.error('[AIChatOrchestrator] classify failed, using fallback:', err);
+      console.error('[AIChatOrchestrator] classify failed after retries, using fallback:', err);
       return this.fallbackClassify(message);
     }
   }

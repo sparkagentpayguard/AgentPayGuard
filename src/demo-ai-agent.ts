@@ -103,12 +103,19 @@ async function main() {
   // 将支付请求与 Agent 身份绑定（满足规则要求）
   if (agentIdentity.isInitialized()) {
     try {
-      const boundPayment = agentIdentity.bindPaymentToAgent({
+      const boundPayment = await agentIdentity.bindPaymentToAgent({
         recipient: finalRecipient,
         amount: paymentIntent.amount,
         purpose: paymentIntent.purpose
       });
       console.log(`\n🔗 Payment bound to Agent: ${boundPayment.agentName}`);
+      console.log(`   Identity Type: ${boundPayment.identityType}`);
+      if (boundPayment.agentAddress) {
+        console.log(`   Agent Address (AA Account): ${boundPayment.agentAddress}`);
+      }
+      if (boundPayment.ownerEOA) {
+        console.log(`   Owner EOA: ${boundPayment.ownerEOA}`);
+      }
     } catch (error) {
       console.warn('\n⚠️  Failed to bind payment to Agent identity:', error);
     }

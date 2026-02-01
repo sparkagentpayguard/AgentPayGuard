@@ -2,6 +2,9 @@ import { ethers } from 'ethers';
 import { AIIntentParser, PaymentIntent, RiskAssessment } from './ai-intent.js';
 import { getMLService } from './ml/ml-service.js';
 import { HistoricalData } from './ml/features.js';
+import { withRetry, CHAIN_RPC_RETRY_OPTIONS } from './retry.js';
+import { ChainRPCError, ErrorCode, extractErrorCode, createFriendlyErrorMessage } from './errors.js';
+import { queryFreezeStatusBatch } from './async-chain.js';
 
 export type Policy = {
   allowlist?: string[];
@@ -76,7 +79,19 @@ export async function evaluatePolicy(args: {
   if (provider && freezeContractAddress) {
     try {
       const freezeContract = new ethers.Contract(freezeContractAddress, FREEZE_ABI, provider);
-      const isFrozen: boolean = await freezeContract.isFrozen(recipient);
+      
+      // 使用重试机制查询链上冻结状态
+      const isFrozen: boolean = await withRetry(
+        async () => {
+          return await freezeContract.isFrozen(recipient);
+        },
+        {
+          ...CHAIN_RPC_RETRY_OPTIONS,
+          onRetry: (attempt: number, error: Error) => {
+            console.warn(`[Policy] Retry attempt ${attempt} for freeze check: ${error.message}`);
+          }
+        }
+      );
       
       if (isFrozen) {
         return {
@@ -87,8 +102,15 @@ export async function evaluatePolicy(args: {
       }
     } catch (error: any) {
       // In Strong Consistency mode, we fail if we can't verify status
-      console.error('[Policy] Failed to check freeze status:', error);
-      throw new Error(`策略校验失败：无法验证链上冻结状态 (${error.message})`);
+      console.error('[Policy] Failed to check freeze status after retries:', error);
+      const errorCode = extractErrorCode(error);
+      throw new ChainRPCError(
+        errorCode,
+        `策略校验失败：无法验证链上冻结状态 (${createFriendlyErrorMessage(error)})`,
+        undefined, // RPC URL (not easily accessible from Provider)
+        undefined, // Chain ID (not easily accessible from Provider)
+        { recipient, freezeContractAddress, originalError: error.message }
+      );
     }
   }
 

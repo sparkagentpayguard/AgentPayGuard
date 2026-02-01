@@ -1,6 +1,9 @@
 import OpenAI from 'openai';
 import { loadEnv } from './config.js';
 import { SimpleCache, hashString } from './cache.js';
+import { withRetry, AI_API_RETRY_OPTIONS, RetryableError, NonRetryableError } from './retry.js';
+import { validateAndSanitizeInput } from './prompt-injection.js';
+import { AIAPIError, ErrorCode, extractErrorCode, createFriendlyErrorMessage } from './errors.js';
 
 export interface PaymentIntent {
   recipient: string;
@@ -162,6 +165,20 @@ export class AIIntentParser {
       return this.fallbackParse(userMessage);
     }
 
+    // 1. 验证和清理输入（防止提示注入）
+    let sanitizedMessage: string;
+    try {
+      sanitizedMessage = validateAndSanitizeInput(userMessage, {
+        maxLength: 1000,
+        allowInjection: false // 严格模式：检测到注入直接抛出错误
+      });
+    } catch (error) {
+      console.error('[AI] Input validation failed:', error);
+      // 如果输入验证失败，使用回退解析器
+      return this.fallbackParse(userMessage);
+    }
+
+    // 2. 使用重试机制调用 AI API
     try {
       const systemPrompt = `You are a payment intent parser for a blockchain payment system.
 Extract structured information from user payment requests.
@@ -188,19 +205,34 @@ Example inputs:
 - "Send 0.5 ETH to my supplier"
 - "Transfer $50 to vendor for office supplies"`;
 
-      const completion = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage }
-        ],
-        temperature: 0.1,
-        response_format: { type: "json_object" }
-      });
+      const completion = await withRetry(
+        async () => {
+          return await this.openai!.chat.completions.create({
+            model: this.model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: sanitizedMessage }
+            ],
+            temperature: 0.1,
+            response_format: { type: "json_object" }
+          });
+        },
+        {
+          ...AI_API_RETRY_OPTIONS,
+          onRetry: (attempt: number, error: Error) => {
+            console.warn(`[AI] Retry attempt ${attempt} for parsePaymentIntent: ${error.message}`);
+          }
+        }
+      );
 
       const content = completion.choices[0]?.message?.content;
       if (!content) {
-        throw new Error('No response from AI');
+        throw new AIAPIError(
+          ErrorCode.AI_API_INVALID_RESPONSE,
+          'No response from AI',
+          this.provider,
+          this.model
+        );
       }
 
       const parsed = JSON.parse(content);
@@ -208,11 +240,36 @@ Example inputs:
       return {
         ...parsed,
         parsedSuccessfully: true,
-        riskLevel: parsed.riskLevel.toLowerCase() as 'low' | 'medium' | 'high'
+        riskLevel: parsed.riskLevel?.toLowerCase() as 'low' | 'medium' | 'high' || 'medium'
       };
-    } catch (error) {
-      console.error('[AI] Error parsing intent:', error);
-      return this.fallbackParse(userMessage);
+    } catch (error: unknown) {
+      // 处理重试错误
+      if (error instanceof RetryableError) {
+        console.error(`[AI] Failed after retries: ${error.message}`);
+        const errorCode = extractErrorCode(error.originalError);
+        throw new AIAPIError(
+          errorCode,
+          createFriendlyErrorMessage(error.originalError),
+          this.provider,
+          this.model,
+          { originalError: error.originalError.message, attempts: error.attempt }
+        );
+      } else if (error instanceof NonRetryableError) {
+        console.error(`[AI] Non-retryable error: ${error.message}`);
+        throw new AIAPIError(
+          extractErrorCode(error.originalError),
+          createFriendlyErrorMessage(error.originalError),
+          this.provider,
+          this.model,
+          { originalError: error.originalError.message }
+        );
+      } else if (error instanceof AIAPIError) {
+        throw error;
+      } else {
+        console.error('[AI] Error parsing intent:', error);
+        // 非重试错误，使用回退解析器
+        return this.fallbackParse(userMessage);
+      }
     }
   }
 
@@ -265,6 +322,19 @@ Example inputs:
     spentToday?: number;
   }): Promise<{ intent: PaymentIntent; risk: RiskAssessment } | null> {
     if (!this.isEnabled() || !this.openai) return null;
+    
+    // 验证和清理输入
+    let sanitizedMessage: string;
+    try {
+      sanitizedMessage = validateAndSanitizeInput(userMessage, {
+        maxLength: 1000,
+        allowInjection: false
+      });
+    } catch (error) {
+      console.error('[AI] Input validation failed in parseAndAssessRiskInOneCall:', error);
+      return null;
+    }
+    
     const contextStr = context ? JSON.stringify(context, null, 2) : 'No additional context';
     const systemPrompt = `You are a payment intent parser and risk assessor for a blockchain payment system.
 From the user's natural language payment request, output a single JSON object with two keys: "intent" and "risk".
@@ -287,18 +357,29 @@ From the user's natural language payment request, output a single JSON object wi
 
 Rules: Default currency USDC. Consider wallet balance and spent today (if in context). Be conservative on risk.`;
 
-    const userPrompt = `User payment request:\n${userMessage}\n\nContext:\n${contextStr}\n\nOutput one JSON: { "intent": {...}, "risk": {...} }`;
+    const userPrompt = `User payment request:\n${sanitizedMessage}\n\nContext:\n${contextStr}\n\nOutput one JSON: { "intent": {...}, "risk": {...} }`;
 
     try {
-      const completion = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.1,
-        response_format: { type: 'json_object' }
-      });
+      const completion = await withRetry(
+        async () => {
+          return await this.openai!.chat.completions.create({
+            model: this.model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            temperature: 0.1,
+            response_format: { type: 'json_object' }
+          });
+        },
+        {
+          ...AI_API_RETRY_OPTIONS,
+          onRetry: (attempt: number, error: Error) => {
+            console.warn(`[AI] Retry attempt ${attempt} for parseAndAssessRiskInOneCall: ${error.message}`);
+          }
+        }
+      );
+      
       const content = completion.choices[0]?.message?.content;
       if (!content) return null;
       const parsed = JSON.parse(content);
@@ -324,7 +405,7 @@ Rules: Default currency USDC. Consider wallet balance and spent today (if in con
       };
       return { intent, risk };
     } catch (e) {
-      console.error('[AI] parseAndAssessRiskInOneCall failed:', e);
+      console.error('[AI] parseAndAssessRiskInOneCall failed after retries:', e);
       return null;
     }
   }
@@ -416,24 +497,49 @@ ${contextStr}
 
 Please provide risk assessment.`;
 
-      const completion = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.2,
-        response_format: { type: "json_object" }
-      });
+      const completion = await withRetry(
+        async () => {
+          return await this.openai!.chat.completions.create({
+            model: this.model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            temperature: 0.2,
+            response_format: { type: "json_object" }
+          });
+        },
+        {
+          ...AI_API_RETRY_OPTIONS,
+          onRetry: (attempt: number, error: Error) => {
+            console.warn(`[AI] Retry attempt ${attempt} for assessRisk: ${error.message}`);
+          }
+        }
+      );
 
       const content = completion.choices[0]?.message?.content;
       if (!content) {
-        throw new Error('No response from AI');
+        throw new AIAPIError(
+          ErrorCode.AI_API_INVALID_RESPONSE,
+          'No response from AI',
+          this.provider,
+          this.model
+        );
       }
 
-      return JSON.parse(content);
+      const parsed = JSON.parse(content);
+      return {
+        score: Math.min(100, Math.max(0, Number(parsed.score) ?? 50)),
+        level: (String(parsed.level).toLowerCase() as 'low' | 'medium' | 'high') || 'medium',
+        reasons: Array.isArray(parsed.reasons) ? parsed.reasons : [],
+        recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : []
+      };
     } catch (error) {
-      console.error('[AI] Error assessing risk:', error);
+      console.error('[AI] Error assessing risk after retries:', error);
+      // 如果是重试错误，记录但不抛出（使用回退）
+      if (error instanceof RetryableError || error instanceof NonRetryableError || error instanceof AIAPIError) {
+        console.warn('[AI] Using fallback risk assessment due to API error');
+      }
       return this.fallbackRiskAssessment(intent);
     }
   }

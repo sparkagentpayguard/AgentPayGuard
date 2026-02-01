@@ -62,12 +62,16 @@ export async function runPay(overrides: RunPayOverrides = {}): Promise<RunPayRes
   // 将支付请求与 Agent 身份绑定（满足规则要求）
   if (agentIdentity.isInitialized()) {
     try {
-      const boundPayment = agentIdentity.bindPaymentToAgent({
+      const boundPayment = await agentIdentity.bindPaymentToAgent({
         recipient,
         amount: amountStr,
         purpose: 'Payment via AgentPayGuard'
       });
       console.log(`[runPay] 支付请求已绑定到 Agent: ${boundPayment.agentName}`);
+      console.log(`[runPay] Agent 身份类型: ${boundPayment.identityType}`);
+      if (boundPayment.agentAddress) {
+        console.log(`[runPay] Agent Address (AA Account): ${boundPayment.agentAddress}`);
+      }
     } catch (error) {
       console.warn('[runPay] Agent 身份绑定失败:', error);
     }

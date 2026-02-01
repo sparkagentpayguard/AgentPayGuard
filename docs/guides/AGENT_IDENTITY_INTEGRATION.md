@@ -35,18 +35,42 @@ AgentPayGuard 已集成 **KitePass (Agent Passport)** 身份系统，满足规�
 - ✅ 符合 KitePass 标准
 - ✅ 可验证的身份标识
 
-### 2. EOA 地址（临时方案）⭐⭐⭐
+### 2. Kite AA SDK 账户抽象（无需 API Key）⭐⭐⭐⭐⭐
 
-**如果没有 KitePass API Key，使用 EOA 地址作为 Agent 身份标识**
+**重要说明**：**即使没有 KITE_API_KEY，也能满足规则要求！**
+
+**原理**：
+- Kite AA SDK 通过 `Owner EOA → AA Account` 的派生关系建立 Agent 身份
+- 这符合 Kite 白皮书中的 **"Agent Identity (Delegated Authority)"** 概念
+- Agent 地址通过 BIP-32 从 Owner EOA 派生，是可验证的 Agent 身份
+- **符合规则要求："使用 Kite Agent 或身份体系"**
 
 **步骤**：
-1. 设置 `PRIVATE_KEY` 在 `.env` 中
-2. 系统会自动使用 EOA 地址作为 Agent 身份标识
+1. 设置 `PRIVATE_KEY` 和 `RPC_URL` 在 `.env` 中（不需要 `KITE_API_KEY`）
+2. 系统会自动使用 Kite AA SDK 获取 Agent 的确定性地址（AA Account）
 
-**说明**：
-- ⚠️ 这是临时方案，不完全符合 KitePass 标准
-- ✅ 但符合"使用 Kite Agent 或身份体系"的要求（通过 AA SDK）
-- ✅ 支付请求仍会与 Agent 身份绑定
+**优势**：
+- ✅ **无需申请 KitePass API Key**
+- ✅ 符合 Kite Agent 身份体系（通过账户抽象）
+- ✅ 使用 Kite 官方 SDK（`gokite-aa-sdk`）
+- ✅ Agent 地址是确定性的，可验证的
+
+**技术细节**：
+```typescript
+// 系统会自动执行以下逻辑：
+const wallet = new ethers.Wallet(PRIVATE_KEY);
+const ownerEOA = await wallet.getAddress();
+const sdk = new GokiteAASDK('kite_testnet', RPC_URL, RPC_URL);
+const agentAddress = sdk.getAccountAddress(ownerEOA); // Agent 的确定性地址
+```
+
+### 3. EOA 地址降级（不推荐）⭐
+
+**说明**：如果 AA SDK 初始化失败，会降级到使用 EOA 地址作为标识。
+
+**限制**：
+- ⚠️ 不完全符合 Kite Agent 身份体系
+- ⚠️ 仅作为降级方案
 
 ---
 

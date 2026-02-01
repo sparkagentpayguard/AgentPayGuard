@@ -33,7 +33,7 @@ Aligned with Kite’s **SPACE** direction (stablecoin-native, programmable const
 | Requirement | How we meet it | Evidence |
 |-------------|----------------|----------|
 | **Chain payment** | Stablecoin transfer on Kite testnet (EOA + AA) | EOA: [Kite Tx](https://testnet.kitescan.ai/tx/0x8ec4f4a44fb7ef878db9fc549ff81294982224648f3cc21ecad04764dcbd75db) · AA: [Kite Tx](https://testnet.kitescan.ai/tx/0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313) |
-| **Agent identity** | KitePass (Agent Passport) + Kite AA SDK | KitePass API Key 身份验证；AA SDK 账户抽象；支付请求与 Agent 身份绑定 |
+| **Agent identity** | KitePass (Agent Passport) + Kite AA SDK | KitePass API Key（可选）或 AA SDK 账户抽象（无需 API Key）；支付请求与 Agent 身份绑定 |
 | **Permission control** | Allowlist, limits, on-chain freeze check before every payment | Multisig: `0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA` · Freeze Tx: [Kite Tx](https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c) |
 | **Reproducibility** | One-command run; README and scripts for clone → run | Part II below; `pnpm demo:pay` / `pnpm demo:ai-agent "..."` |
 

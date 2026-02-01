@@ -89,19 +89,23 @@ async function runAIPayPipeline(request: string, executeOnchain: boolean, paymen
     return { ok: false, error: 'parse_failed', message: 'Failed to parse payment intent', intent: intent as unknown as Record<string, unknown> };
   }
 
-  // 将支付请求与 Agent 身份绑定（满足规则要求）
-  if (agentIdentity.isInitialized()) {
-    try {
-      const boundPayment = agentIdentity.bindPaymentToAgent({
-        recipient: intent.recipient !== 'unknown' ? intent.recipient : env.RECIPIENT,
-        amount: intent.amount,
-        purpose: intent.purpose
-      });
-      console.log(`[ai-pipeline] 支付请求已绑定到 Agent: ${boundPayment.agentName}`);
-    } catch (error) {
-      console.warn('[ai-pipeline] Agent 身份绑定失败:', error);
-    }
-  }
+      // 将支付请求与 Agent 身份绑定（满足规则要求）
+      if (agentIdentity.isInitialized()) {
+        try {
+          const boundPayment = await agentIdentity.bindPaymentToAgent({
+            recipient: intent.recipient !== 'unknown' ? intent.recipient : env.RECIPIENT,
+            amount: intent.amount,
+            purpose: intent.purpose
+          });
+          console.log(`[ai-pipeline] 支付请求已绑定到 Agent: ${boundPayment.agentName}`);
+          console.log(`[ai-pipeline] Agent 身份类型: ${boundPayment.identityType}`);
+          if (boundPayment.agentAddress) {
+            console.log(`[ai-pipeline] Agent Address (AA Account): ${boundPayment.agentAddress}`);
+          }
+        } catch (error) {
+          console.warn('[ai-pipeline] Agent 身份绑定失败:', error);
+        }
+      }
 
   const finalRecipient = intent.recipient !== 'unknown' ? intent.recipient : env.RECIPIENT;
   if (!finalRecipient || finalRecipient === 'unknown') {

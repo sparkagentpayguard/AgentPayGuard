@@ -8,11 +8,13 @@ import { AnomalyDetector, AnomalyDetectionResult } from './anomaly-detection.js'
 import { PaymentIntent, RiskAssessment } from '../ai-intent.js';
 import { PolicyDecision } from '../policy.js';
 import { loadEnv } from '../config.js';
+import { FeatureCacheService } from '../feature-cache.js';
 
 export class MLService {
   private dataCollector: DataCollector | null = null;
   private featureService: FeatureService;
   private anomalyDetector: AnomalyDetector;
+  private featureCache: FeatureCacheService;
   private enabled: boolean = false;
 
   constructor() {
@@ -21,6 +23,11 @@ export class MLService {
     
     this.featureService = new FeatureService();
     this.anomalyDetector = new AnomalyDetector(this.featureService);
+    this.featureCache = new FeatureCacheService({
+      recipientCacheTTL: 3600,  // 1 小时
+      userCacheTTL: 1800,        // 30 分钟
+      maxCommonRecipients: 100
+    });
     
     if (this.enabled) {
       const storagePath = env.ML_DATA_PATH || './data/training';
@@ -39,14 +46,25 @@ export class MLService {
   }
 
   /**
-   * 计算特征向量
+   * 计算特征向量（带缓存）
    */
   async computeFeatures(
     intent: PaymentIntent,
     context: RiskContext,
     historicalData?: HistoricalData
   ): Promise<FeatureVector> {
-    return await this.featureService.computeFeatures(intent, context, historicalData);
+    // 尝试从缓存获取收款地址特征
+    const cachedRecipientFeatures = this.featureCache.getRecipientFeatures(intent.recipient);
+    
+    // 计算特征
+    const features = await this.featureService.computeFeatures(intent, context, historicalData);
+    
+    // 缓存收款地址特征
+    if (intent.recipient && intent.recipient !== 'unknown') {
+      this.featureCache.setRecipientFeatures(intent.recipient, features);
+    }
+    
+    return features;
   }
 
   /**
@@ -121,12 +139,49 @@ export class MLService {
   }
 
   /**
+   * 获取特征缓存统计信息
+   */
+  getFeatureCacheStats(): {
+    recipientCacheSize: number;
+    userCacheSize: number;
+    commonRecipientsCount: number;
+  } {
+    return this.featureCache.getStats();
+  }
+
+  /**
+   * 预计算常用收款地址的特征
+   */
+  async precomputeCommonRecipients(): Promise<void> {
+    if (!this.enabled) {
+      return;
+    }
+
+    await this.featureCache.precomputeCommonRecipients(async (recipient: string) => {
+      const intent: PaymentIntent = {
+        recipient,
+        amount: '0',
+        amountNumber: 0,
+        currency: 'USDC',
+        purpose: 'precomputation',
+        confidence: 0,
+        riskLevel: 'low',
+        reasoning: '',
+        parsedSuccessfully: false
+      };
+      const context: RiskContext = {};
+      return await this.featureService.computeFeatures(intent, context);
+    });
+  }
+
+  /**
    * 清理资源
    */
   async cleanup(): Promise<void> {
     if (this.dataCollector) {
       await this.dataCollector.cleanup();
     }
+    this.featureCache.clearCache();
   }
 }
 
