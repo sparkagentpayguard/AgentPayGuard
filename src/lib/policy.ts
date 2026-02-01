@@ -1,5 +1,7 @@
 import { ethers } from 'ethers';
 import { AIIntentParser, PaymentIntent, RiskAssessment } from './ai-intent.js';
+import { getMLService } from './ml/ml-service.js';
+import { HistoricalData } from './ml/features.js';
 
 export type Policy = {
   allowlist?: string[];
@@ -130,6 +132,7 @@ export async function evaluatePolicyWithAI(args: {
   context?: {
     historicalPayments?: Array<{recipient: string, amount: number, timestamp: Date}>;
     walletBalance?: number;
+    spentToday?: number;
   };
 }): Promise<EnhancedPolicyDecision> {
   const { 
@@ -218,6 +221,63 @@ export async function evaluatePolicyWithAI(args: {
           warnings.push(...aiAssessment.recommendations.map(rec => `建议：${rec}`));
         }
       }
+
+      // Step 2.5: ML异常检测（如果启用）
+      const mlService = getMLService();
+      if (mlService.isEnabled() && finalPaymentIntent) {
+        try {
+          // 计算特征
+          const historicalData: HistoricalData = {
+            transactions: context?.historicalPayments?.map(p => ({
+              recipient: p.recipient,
+              amount: p.amount,
+              timestamp: p.timestamp,
+              purpose: finalPaymentIntent.purpose
+            })) || []
+          };
+          
+          const features = await mlService.computeFeatures(
+            finalPaymentIntent,
+            {
+              walletBalance: context?.walletBalance,
+              spentToday: context?.spentToday ? Number(context.spentToday) : undefined
+            },
+            historicalData.transactions.length > 0 ? historicalData : undefined
+          );
+
+          // 异常检测
+          const anomalyResult = await mlService.detectAnomaly(features);
+          
+          if (anomalyResult.isAnomaly) {
+            // 异常检测触发，提高风险分数
+            const anomalyRiskBoost = Math.abs(anomalyResult.anomalyScore) * 30; // 最多增加30分
+            aiAssessment.score = Math.min(100, aiAssessment.score + anomalyRiskBoost);
+            aiAssessment.reasons.push(`异常检测：异常分数 ${anomalyResult.anomalyScore.toFixed(2)}`);
+            if (anomalyResult.reasons && anomalyResult.reasons.length > 0) {
+              aiAssessment.reasons.push(...anomalyResult.reasons);
+            }
+            
+            // 如果异常分数很高，可能直接拒绝
+            if (anomalyResult.anomalyScore < -0.7 && aiAssessment.score > (policy.maxRiskScore || 70)) {
+              return {
+                baseDecision: {
+                  ok: false,
+                  code: 'AI_RISK_TOO_HIGH',
+                  message: `异常检测发现高风险模式：${anomalyResult.reasons?.join('; ') || '异常交易特征'}`
+                },
+                aiAssessment,
+                paymentIntent: finalPaymentIntent,
+                aiEnabled: true,
+                warnings
+              };
+            }
+          }
+        } catch (error) {
+          console.error('[ML] Failed to perform anomaly detection:', error);
+          // 不影响主流程，只记录警告
+          warnings.push('ML异常检测失败，跳过ML检查');
+        }
+      }
     } catch (error) {
       console.error('[AI] Failed to assess risk:', error);
       if (policy.requireAIAssessment) {
@@ -259,6 +319,59 @@ export async function evaluatePolicyWithAI(args: {
     provider,
     freezeContractAddress
   });
+
+  // Step 4: 数据收集（如果启用ML功能）
+  const mlService = getMLService();
+  if (mlService.isEnabled() && finalPaymentIntent && aiAssessment) {
+    try {
+      // 计算特征（如果之前没计算过）
+      let features;
+      try {
+        const historicalData: HistoricalData = {
+          transactions: context?.historicalPayments?.map(p => ({
+            recipient: p.recipient,
+            amount: p.amount,
+            timestamp: p.timestamp,
+            purpose: finalPaymentIntent.purpose
+          })) || []
+        };
+        
+        features = await mlService.computeFeatures(
+          finalPaymentIntent,
+          {
+            walletBalance: context?.walletBalance,
+            spentToday: context?.spentToday ? Number(context.spentToday) : undefined
+          },
+          historicalData.transactions.length > 0 ? historicalData : undefined
+        );
+      } catch (error) {
+        console.error('[ML] Failed to compute features for data collection:', error);
+        // 使用基础特征
+        features = {
+          amountNumber: finalPaymentIntent.amountNumber,
+          walletBalance: context?.walletBalance,
+          spentToday: context?.spentToday ? Number(context.spentToday) : undefined
+        };
+      }
+
+      // 收集数据（异步，不阻塞主流程）
+      mlService.collectTransaction(
+        features,
+        finalPaymentIntent,
+        aiAssessment,
+        baseDecision,
+        {
+          walletBalance: context?.walletBalance,
+          spentToday: context?.spentToday ? Number(context.spentToday) : undefined
+        }
+      ).catch(err => {
+        console.error('[ML] Failed to collect transaction data:', err);
+      });
+    } catch (error) {
+      console.error('[ML] Failed to collect data:', error);
+      // 不影响主流程
+    }
+  }
 
   // Combine results
   if (baseDecision.ok) {

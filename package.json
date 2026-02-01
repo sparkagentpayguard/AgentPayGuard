@@ -10,6 +10,7 @@
     "demo:reject": "tsx src/demo-reject.ts",
     "demo:freeze": "tsx src/test-freeze.ts",
     "demo:ai-agent": "tsx src/demo-ai-agent.ts",
+    "retrain-models": "tsx src/scripts/retrain-models.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
