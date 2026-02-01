@@ -201,7 +201,6 @@ The system includes an ML module for advanced risk detection. **Note: Current im
 - **Risk assessment statistics**: Total assessments, average score, risk distribution
 - **System information**: Uptime, memory usage, Node.js version
 
-See [`docs/PERFORMANCE_OPTIMIZATION.md`](docs/PERFORMANCE_OPTIMIZATION.md) for details.
 
 ### Supported AI Providers
 
@@ -256,7 +255,7 @@ ENABLE_ML_FEATURES=1
 ML_DATA_PATH=./data/training  # Data storage path
 ```
 
-**Implementation Status**: See [`docs/ALGORITHM_IMPLEMENTATION_STATUS.md`](docs/ALGORITHM_IMPLEMENTATION_STATUS.md) for detailed algorithm completion analysis.
+**Implementation Status**: See [`docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md`](docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md) for detailed algorithm analysis and optimization recommendations.
 
 **⚠️ Important**: Current ML implementations are **simplified MVP versions** suitable for demonstration and proof-of-concept. For production deployment, we recommend:
 1. Training models with Python (XGBoost/scikit-learn)
@@ -284,7 +283,6 @@ ML_DATA_PATH=./data/training  # Data storage path
 - **Dashboard component**: `MetricsDashboard` React component for frontend visualization
 - **Key metrics**: API performance, AI statistics, payment success rate, risk assessment distribution, system info
 
-See [`docs/PERFORMANCE_OPTIMIZATION.md`](docs/PERFORMANCE_OPTIMIZATION.md) for details.
 
 ---
 
@@ -302,7 +300,7 @@ See [`docs/PERFORMANCE_OPTIMIZATION.md`](docs/PERFORMANCE_OPTIMIZATION.md) for d
    - **Status**: 59-dimensional feature engineering complete, models integrated into policy engine
    - **Note**: Current implementations are **simplified MVP versions** for demonstration. Production use recommended: train with Python XGBoost/scikit-learn, export to ONNX/JSON
    - **Why**: Combines LLM's contextual understanding with ML's pattern recognition for higher accuracy
-   - **See**: [`docs/ALGORITHM_IMPLEMENTATION_STATUS.md`](docs/ALGORITHM_IMPLEMENTATION_STATUS.md) for implementation details
+   - **See**: [`docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md`](docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md) for algorithm analysis
 
 3. **Anomaly Detection** ✅ **Implemented (MVP)**
    - **Current**: ✅ Isolation Forest implemented (**simplified MVP version** using Z-score statistics)
@@ -672,19 +670,16 @@ In development environment, `/api` proxies to main repo API (3456). Open homepag
 
 | Document | Purpose |
 |----------|---------|
-| **Usage Guides** |
-| [`AI_AGENT_GUIDE.md`](docs/guides/AI_AGENT_GUIDE.md) | 🤖 **AI Agent Development Guide** (natural language parsing + risk assessment + API reference) |
-| [`TESTING_GUIDE.md`](docs/guides/TESTING_GUIDE.md) | 🧪 Role B Testing & Presentation Guide (5 scenarios + presentation script) |
-| [`ROLE_A_GUIDE.md`](docs/guides/ROLE_A_GUIDE.md) | 🔗 Multisig Deployment Guide (Gnosis Safe + TokenGuard) |
-| [`ROLE_C_GUIDE.md`](docs/guides/ROLE_C_GUIDE.md) | 🎨 **Frontend Development Guide** (Web UI + visualization + tech design) |
-| [`ROLE_D_GUIDE.md`](docs/guides/ROLE_D_GUIDE.md) | 🎥 PPT & Video Production Guide (supports Role B presentation) |
+| **Available Guides** |
+| [`AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md`](docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md) | 🧠 AI Risk Control Algorithm Analysis & Optimization Recommendations |
+| [`DEMO_VIDEO_GUIDE.md`](docs/guides/DEMO_VIDEO_GUIDE.md) | 🎥 Demo Video Production Guide |
+| [`AGENT_COMPLETENESS_ANALYSIS.md`](docs/guides/AGENT_COMPLETENESS_ANALYSIS.md) | 📊 Agent Completeness Analysis |
+| [`AI_CHAT_TROUBLESHOOTING.md`](docs/guides/AI_CHAT_TROUBLESHOOTING.md) | 🔧 AI Chat Troubleshooting Guide |
 | **Reference Documents** |
 | [`ARCHITECTURE.md`](docs/reference/ARCHITECTURE.md) | 🏗️ System Architecture & Design Decisions |
 | [`allocation.md`](docs/reference/allocation.md) | 👥 Role Division & Deliverables List |
-| [`PM_AND_ROLE_B_QUICKREF.md`](docs/internal/PM_AND_ROLE_B_QUICKREF.md) | 📋 PM / Role B Quick Reference (checklist + document entry) |
 | [`resources/`](docs/resources/) | 📚 **Original Resources** (track rules, official links, etc.) |
 | **Internal Management** |
-| [`FINAL_DELIVERY_CHECKLIST.md`](docs/internal/FINAL_DELIVERY_CHECKLIST.md) | ✅ Final Delivery Checklist (Roles A/B/C/D) |
 | [`AGENT_WORKLOG.md`](docs/internal/AGENT_WORKLOG.md) | 📝 Work Log (Phase summaries) |
 | [`.clinerules`](.clinerules) | 📋 Agent Work Constraints + Security Policy (16 rules, .env protection) |
 

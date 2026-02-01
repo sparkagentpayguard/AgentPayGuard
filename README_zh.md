@@ -194,7 +194,6 @@ User(授权/配置策略)
 - **风险评估统计**：总评估数、平均分数、风险分布
 - **系统信息**：运行时间、内存使用、Node.js 版本
 
-详见 [`docs/PERFORMANCE_OPTIMIZATION.md`](docs/PERFORMANCE_OPTIMIZATION.md)。
 
 ### 支持的 AI 提供商
 
@@ -249,35 +248,12 @@ ENABLE_ML_FEATURES=1
 ML_DATA_PATH=./data/training  # 数据存储路径
 ```
 
-**实现状态**：详见 [`docs/ALGORITHM_IMPLEMENTATION_STATUS.md`](docs/ALGORITHM_IMPLEMENTATION_STATUS.md) 了解算法完成度分析。
+**实现状态**：详见 [`docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md`](docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md) 了解算法分析与优化建议。
 
 **⚠️ 重要提示**：当前 ML 实现为**简化 MVP 版本**，适用于演示和概念验证。生产环境部署建议：
 1. 使用 Python（XGBoost/scikit-learn）训练模型
 2. 导出模型为 ONNX 或 JSON 格式
 3. 在 Node.js 中使用 ONNX Runtime 或自定义推理引擎
-
-### 安全与可靠性
-
-- **提示注入防护**：检测 20+ 注入模式，自动输入清理
-- **重试机制**：AI API 指数退避重试（3次），链上 RPC 重试（5次）
-- **错误处理**：20+ 错误码，友好错误消息（中英文）
-- **输入验证**：长度限制、格式验证、注入检测
-
-### 性能优化
-
-- **批量 AI 处理**：队列和批量处理多个 AI 请求（减少 API 调用）
-- **异步链上查询**：并行批量查询冻结状态、余额（降低延迟）
-- **特征缓存**：常用收款地址/用户特征预计算（减少计算）
-- **请求队列**：并发请求管理，支持优先级调度
-- **请求去重**：避免重复请求（5秒TTL）
-
-### 性能监控
-
-- **Metrics API**：`GET /api/metrics` - 实时性能指标
-- **仪表盘组件**：`MetricsDashboard` React 组件用于前端可视化
-- **关键指标**：API 性能、AI 统计、支付成功率、风险评估分布、系统信息
-
-详见 [`docs/PERFORMANCE_OPTIMIZATION.md`](docs/PERFORMANCE_OPTIMIZATION.md)。
 
 ---
 
@@ -615,19 +591,16 @@ cd frontend && npm i && npm run dev
 
 | 文档 | 用途 |
 |------|------|
-| **使用指南** |
-| [`AI_AGENT_GUIDE.md`](docs/guides/AI_AGENT_GUIDE.md) | 🤖 **AI Agent 开发指南**（自然语言解析 + 风险评估 + API参考） |
-| [`TESTING_GUIDE.md`](docs/guides/TESTING_GUIDE.md) | 🧪 Role B 测试与演讲指南（5 个场景 + 演讲脚本） |
-| [`ROLE_A_GUIDE.md`](docs/guides/ROLE_A_GUIDE.md) | 🔗 多签部署指南（Gnosis Safe + TokenGuard） |
-| [`ROLE_C_GUIDE.md`](docs/guides/ROLE_C_GUIDE.md) | 🎨 **前端开发指南**（Web UI + 可视化 + 科技感设计） |
-| [`ROLE_D_GUIDE.md`](docs/guides/ROLE_D_GUIDE.md) | 🎥 PPT 与视频制作指南（支持 Role B 演讲） |
+| **可用指南** |
+| [`AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md`](docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md) | 🧠 AI 风险控制算法分析与优化建议 |
+| [`DEMO_VIDEO_GUIDE.md`](docs/guides/DEMO_VIDEO_GUIDE.md) | 🎥 演示视频制作指南 |
+| [`AGENT_COMPLETENESS_ANALYSIS.md`](docs/guides/AGENT_COMPLETENESS_ANALYSIS.md) | 📊 Agent 完成度分析 |
+| [`AI_CHAT_TROUBLESHOOTING.md`](docs/guides/AI_CHAT_TROUBLESHOOTING.md) | 🔧 AI 聊天故障排除指南 |
 | **参考文档** |
 | [`ARCHITECTURE.md`](docs/reference/ARCHITECTURE.md) | 🏗️ 系统架构与设计决策 |
 | [`allocation.md`](docs/reference/allocation.md) | 👥 角色分工与交付物清单 |
-| [`PM_AND_ROLE_B_QUICKREF.md`](docs/internal/PM_AND_ROLE_B_QUICKREF.md) | 📋 PM / 角色 B 快速参考（检查清单 + 文档入口） |
 | [`resources/`](docs/resources/) | 📚 **原始资源**（赛道规则、官方链接等） |
 | **内部管理** |
-| [`FINAL_DELIVERY_CHECKLIST.md`](docs/internal/FINAL_DELIVERY_CHECKLIST.md) | ✅ 最终交付清单（角色 A/B/C/D） |
 | [`AGENT_WORKLOG.md`](docs/internal/AGENT_WORKLOG.md) | 📝 工作日志（Phase 摘要） |
 | [`.clinerules`](.clinerules) | 📋 Agent 工作约束 + 安全政策（16 条规则、.env 保护） |
 
