@@ -73,7 +73,10 @@ export const EnvSchema = z.object({
 
   // Kite Agent Identity (KitePass / Agent Passport)
   KITE_API_KEY: z.string().optional(), // KitePass API Key（从 https://app.gokite.ai/ 获取）
-  KITE_AGENT_NAME: z.string().optional().default('AgentPayGuard') // Agent 名称
+  KITE_AGENT_NAME: z.string().optional().default('AgentPayGuard'), // Agent 名称
+
+  // AI System Prompt (可选，自定义系统提示词)
+  AI_SYSTEM_PROMPT: z.string().optional() // 自定义 AI 聊天助手的系统提示词（如果设置，将覆盖自动生成的提示词）
 });
 
 export type Env = z.infer<typeof EnvSchema>;
