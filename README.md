@@ -262,28 +262,6 @@ ML_DATA_PATH=./data/training  # Data storage path
 2. Exporting models to ONNX or JSON format
 3. Using ONNX Runtime or custom inference engine in Node.js
 
-### Security & Reliability
-
-- **Prompt injection protection**: 20+ injection patterns detected, automatic input sanitization
-- **Retry mechanism**: Exponential backoff for AI API (3 retries) and chain RPC (5 retries)
-- **Error handling**: 20+ error codes with friendly messages (Chinese/English)
-- **Input validation**: Length limits, format validation, injection detection
-
-### Performance Optimizations
-
-- **Batch AI processing**: Queue and batch multiple AI requests (reduces API calls)
-- **Async chain queries**: Parallel batch queries for freeze status, balances (reduces latency)
-- **Feature caching**: Precomputed features for common recipients/users (reduces computation)
-- **Request queue**: Concurrent request management with priority scheduling
-- **Request deduplication**: Avoid duplicate requests (5s TTL)
-
-### Performance Monitoring
-
-- **Metrics API**: `GET /api/metrics` - Real-time performance indicators
-- **Dashboard component**: `MetricsDashboard` React component for frontend visualization
-- **Key metrics**: API performance, AI statistics, payment success rate, risk assessment distribution, system info
-
-
 ---
 
 ## Future Improvements
