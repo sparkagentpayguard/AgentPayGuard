@@ -78,29 +78,40 @@ User(授权/配置策略)
 
 ### 核心模块
 
+**核心模块**（基础功能必需）：
+
 | 模块 | 文件 | 功能 |
 |------|------|------|
 | **AI 意图解析** | [`src/lib/ai-intent.ts`](src/lib/ai-intent.ts) | 自然语言解析、风险评估、多AI提供商支持 |
 | **策略引擎** | [`src/lib/policy.ts`](src/lib/policy.ts) | 白名单/限额/AI风险评估/链上冻结检查 |
-| **ML 服务** | [`src/lib/ml/ml-service.ts`](src/lib/ml/ml-service.ts) | ML 模型管理（XGBoost、异常检测） |
-| **特征工程** | [`src/lib/ml/features.ts`](src/lib/ml/features.ts) | 59维特征计算 |
-| **异常检测** | [`src/lib/ml/anomaly-detection.ts`](src/lib/ml/anomaly-detection.ts) | 基于孤立森林的异常检测 |
-| **XGBoost 模型** | [`src/lib/ml/xgboost-model.ts`](src/lib/ml/xgboost-model.ts) | 风险预测模型 |
-| **数据收集** | [`src/lib/ml/data-collector.ts`](src/lib/ml/data-collector.ts) | 自动交易数据收集 |
-| **提示注入防护** | [`src/lib/prompt-injection.ts`](src/lib/prompt-injection.ts) | 输入验证和注入检测 |
-| **批量 AI 处理** | [`src/lib/batch-ai.ts`](src/lib/batch-ai.ts) | 批量 AI 请求处理 |
-| **异步链上查询** | [`src/lib/async-chain.ts`](src/lib/async-chain.ts) | 并行链上查询优化 |
-| **特征缓存** | [`src/lib/feature-cache.ts`](src/lib/feature-cache.ts) | 特征预计算和缓存 |
-| **重试机制** | [`src/lib/retry.ts`](src/lib/retry.ts) | 指数退避重试逻辑 |
-| **性能监控** | [`src/lib/metrics.ts`](src/lib/metrics.ts) | 性能监控和统计 |
-| **请求队列** | [`src/lib/request-queue.ts`](src/lib/request-queue.ts) | 请求队列和批处理 |
-| **动态系统提示词** | [`src/lib/system-prompt-builder.ts`](src/lib/system-prompt-builder.ts) | 动态 AI 系统提示词生成 |
 | **支付执行** | [`src/lib/run-pay.ts`](src/lib/run-pay.ts) | EOA/AA 支付路径统一接口 |
 | **ERC20 转账** | [`src/lib/erc20.ts`](src/lib/erc20.ts) | EOA 直接转账 |
 | **AA 支付** | [`src/lib/kite-aa.ts`](src/lib/kite-aa.ts) | Kite AA SDK 集成 |
+| **API 服务** | [`src/server.ts`](src/server.ts) | HTTP API（供前端调用） |
+
+**支持模块**（增强功能和优化）：
+
+| 模块 | 文件 | 功能 |
+|------|------|------|
 | **配置管理** | [`src/lib/config.ts`](src/lib/config.ts) | 环境变量加载与验证 |
 | **状态管理** | [`src/lib/state.ts`](src/lib/state.ts) | 本地支付记录与限额追踪 |
-| **API 服务** | [`src/server.ts`](src/server.ts) | HTTP API（供前端调用） |
+| **提示注入防护** | [`src/lib/prompt-injection.ts`](src/lib/prompt-injection.ts) | 输入验证和注入检测 |
+| **重试机制** | [`src/lib/retry.ts`](src/lib/retry.ts) | 指数退避重试逻辑 |
+| **批量 AI 处理** | [`src/lib/batch-ai.ts`](src/lib/batch-ai.ts) | 批量 AI 请求处理（性能优化） |
+| **异步链上查询** | [`src/lib/async-chain.ts`](src/lib/async-chain.ts) | 并行链上查询优化 |
+| **性能监控** | [`src/lib/metrics.ts`](src/lib/metrics.ts) | 性能监控和统计 |
+| **请求队列** | [`src/lib/request-queue.ts`](src/lib/request-queue.ts) | 请求队列和批处理 |
+
+**可选 ML 模块**（MVP/简化实现，详见[机器学习功能](#机器学习功能可选mvp简化实现)）：
+
+| 模块 | 文件 | 功能 |
+|------|------|------|
+| **ML 服务** | [`src/lib/ml/ml-service.ts`](src/lib/ml/ml-service.ts) | ML 模型管理（XGBoost、异常检测） |
+| **特征工程** | [`src/lib/ml/features.ts`](src/lib/ml/features.ts) | 59维特征计算 |
+| **异常检测** | [`src/lib/ml/anomaly-detection.ts`](src/lib/ml/anomaly-detection.ts) | 基于孤立森林的异常检测（MVP） |
+| **XGBoost 模型** | [`src/lib/ml/xgboost-model.ts`](src/lib/ml/xgboost-model.ts) | 风险预测模型（MVP） |
+| **数据收集** | [`src/lib/ml/data-collector.ts`](src/lib/ml/data-collector.ts) | 自动交易数据收集 |
+| **特征缓存** | [`src/lib/feature-cache.ts`](src/lib/feature-cache.ts) | 特征预计算和缓存 |
 
 ---
 
@@ -208,7 +219,7 @@ ML_DATA_PATH=./data/training  # 数据存储路径
 | 提供商 | 配置变量 | 默认模型 | 特点 |
 |--------|----------|----------|------|
 | **DeepSeek** | `DEEPSEEK_API_KEY` | `deepseek-chat` | 免费额度，推荐 |
-| **Google Gemini** | `GEMINI_API_KEY` | `gemini-1.5-pro` | 免费额度 |
+| **Google Gemini** | `GEMINI_API_KEY` | `gemini-1.5-flash` | 免费额度（Flash 版本更快） |
 | **OpenAI** | `OPENAI_API_KEY` | `gpt-4o-mini` | 付费 |
 | **Claude** | `CLAUDE_API_KEY` | `claude-3-haiku` | 付费 |
 | **Ollama** | `OLLAMA_URL` | `llama3.2` | 本地免费 |
@@ -225,7 +236,7 @@ AI_MODEL=deepseek-chat
 
 # 或使用 Gemini
 # GEMINI_API_KEY=your-gemini-api-key-here
-# AI_MODEL=gemini-1.5-pro
+# AI_MODEL=gemini-1.5-flash  # Flash 版本更快
 
 # 或使用本地 Ollama
 # OLLAMA_URL=http://localhost:11434/v1
@@ -236,22 +247,7 @@ AI_MODEL=deepseek-chat
 
 ## 🚀 高级功能
 
-### 机器学习模块（MVP/简化实现）
-
-项目包含 ML 模块，用于高级风险检测（通过 `ENABLE_ML_FEATURES=1` 启用）。**⚠️ 注意：当前实现为简化 MVP 版本，用于演示目的。**
-
-- **59维特征工程**：时间窗口、行为序列、地址关联、用户画像、链上特征
-- **XGBoost 风险预测**：有监督学习模型进行风险评分（**简化 MVP 实现**）
-- **孤立森林异常检测**：无监督异常检测，支持冷启动场景（**简化 MVP 实现**）
-- **自动数据收集**：生产环境中自动收集交易数据用于模型训练
-- **特征缓存**：预计算特征，基于 TTL 的缓存机制
-
-**实现状态**：详见 [`docs/ALGORITHM_IMPLEMENTATION_STATUS.md`](docs/ALGORITHM_IMPLEMENTATION_STATUS.md) 了解算法完成度分析。
-
-**⚠️ 重要提示**：当前 ML 实现为**简化 MVP 版本**，适用于演示和概念验证。生产环境部署建议：
-1. 使用 Python（XGBoost/scikit-learn）训练模型
-2. 导出模型为 ONNX 或 JSON 格式
-3. 在 Node.js 中使用 ONNX Runtime 或自定义推理引擎
+详见[机器学习功能](#机器学习功能可选mvp简化实现)部分了解 ML 模块详情。
 
 ### 安全与可靠性
 

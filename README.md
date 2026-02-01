@@ -84,29 +84,40 @@ Anomaly/High Risk → SimpleMultiSig (2/3 Multisig) Intervention: Freeze/Unfreez
 
 ### Core Modules
 
+**Core modules** (essential for basic functionality):
+
 | Module | File | Function |
 |--------|------|----------|
 | **AI Intent Parser** | [`src/lib/ai-intent.ts`](src/lib/ai-intent.ts) | Natural language parsing, risk assessment, multi-AI provider support |
 | **Policy Engine** | [`src/lib/policy.ts`](src/lib/policy.ts) | Allowlist/limits/AI risk assessment/on-chain freeze check |
-| **ML Service** | [`src/lib/ml/ml-service.ts`](src/lib/ml/ml-service.ts) | ML model management (XGBoost, anomaly detection) |
-| **Feature Engineering** | [`src/lib/ml/features.ts`](src/lib/ml/features.ts) | 59-dimensional feature computation |
-| **Anomaly Detection** | [`src/lib/ml/anomaly-detection.ts`](src/lib/ml/anomaly-detection.ts) | Isolation Forest-based anomaly detection |
-| **XGBoost Model** | [`src/lib/ml/xgboost-model.ts`](src/lib/ml/xgboost-model.ts) | Risk prediction model |
-| **Data Collector** | [`src/lib/ml/data-collector.ts`](src/lib/ml/data-collector.ts) | Automatic transaction data collection |
-| **Prompt Injection Protection** | [`src/lib/prompt-injection.ts`](src/lib/prompt-injection.ts) | Input validation and injection detection |
-| **Batch AI Processing** | [`src/lib/batch-ai.ts`](src/lib/batch-ai.ts) | Batch AI request processing |
-| **Async Chain Queries** | [`src/lib/async-chain.ts`](src/lib/async-chain.ts) | Parallel chain query optimization |
-| **Feature Caching** | [`src/lib/feature-cache.ts`](src/lib/feature-cache.ts) | Feature precomputation and caching |
-| **Retry Mechanism** | [`src/lib/retry.ts`](src/lib/retry.ts) | Exponential backoff retry logic |
-| **Performance Metrics** | [`src/lib/metrics.ts`](src/lib/metrics.ts) | Performance monitoring and statistics |
-| **Request Queue** | [`src/lib/request-queue.ts`](src/lib/request-queue.ts) | Request queue and batch processing |
-| **Dynamic System Prompt** | [`src/lib/system-prompt-builder.ts`](src/lib/system-prompt-builder.ts) | Dynamic AI system prompt generation |
 | **Payment Execution** | [`src/lib/run-pay.ts`](src/lib/run-pay.ts) | Unified interface for EOA/AA payment paths |
 | **ERC20 Transfer** | [`src/lib/erc20.ts`](src/lib/erc20.ts) | Direct EOA transfer |
 | **AA Payment** | [`src/lib/kite-aa.ts`](src/lib/kite-aa.ts) | Kite AA SDK integration |
+| **API Service** | [`src/server.ts`](src/server.ts) | HTTP API (for frontend calls) |
+
+**Supporting modules** (enhancements and optimizations):
+
+| Module | File | Function |
+|--------|------|----------|
 | **Config Management** | [`src/lib/config.ts`](src/lib/config.ts) | Environment variable loading and validation |
 | **State Management** | [`src/lib/state.ts`](src/lib/state.ts) | Local payment records and limit tracking |
-| **API Service** | [`src/server.ts`](src/server.ts) | HTTP API (for frontend calls) |
+| **Prompt Injection Protection** | [`src/lib/prompt-injection.ts`](src/lib/prompt-injection.ts) | Input validation and injection detection |
+| **Retry Mechanism** | [`src/lib/retry.ts`](src/lib/retry.ts) | Exponential backoff retry logic |
+| **Batch AI Processing** | [`src/lib/batch-ai.ts`](src/lib/batch-ai.ts) | Batch AI request processing (performance optimization) |
+| **Async Chain Queries** | [`src/lib/async-chain.ts`](src/lib/async-chain.ts) | Parallel chain query optimization |
+| **Performance Metrics** | [`src/lib/metrics.ts`](src/lib/metrics.ts) | Performance monitoring and statistics |
+| **Request Queue** | [`src/lib/request-queue.ts`](src/lib/request-queue.ts) | Request queue and batch processing |
+
+**Optional ML modules** (MVP/Simplified implementation, see [Machine Learning Features](#machine-learning-features-optional-mvpsimplified-implementation)):
+
+| Module | File | Function |
+|--------|------|----------|
+| **ML Service** | [`src/lib/ml/ml-service.ts`](src/lib/ml/ml-service.ts) | ML model management (XGBoost, anomaly detection) |
+| **Feature Engineering** | [`src/lib/ml/features.ts`](src/lib/ml/features.ts) | 59-dimensional feature computation |
+| **Anomaly Detection** | [`src/lib/ml/anomaly-detection.ts`](src/lib/ml/anomaly-detection.ts) | Isolation Forest-based anomaly detection (MVP) |
+| **XGBoost Model** | [`src/lib/ml/xgboost-model.ts`](src/lib/ml/xgboost-model.ts) | Risk prediction model (MVP) |
+| **Data Collector** | [`src/lib/ml/data-collector.ts`](src/lib/ml/data-collector.ts) | Automatic transaction data collection |
+| **Feature Caching** | [`src/lib/feature-cache.ts`](src/lib/feature-cache.ts) | Feature precomputation and caching |
 
 ---
 
@@ -243,22 +254,7 @@ AI_MODEL=deepseek-chat
 
 ## Advanced Features
 
-### Machine Learning Module (MVP/Simplified Implementation)
-
-The project includes an ML module for advanced risk detection (enabled with `ENABLE_ML_FEATURES=1`). **⚠️ Note: Current implementations are simplified MVP versions for demonstration purposes.**
-
-- **59-dimensional feature engineering**: Time windows, behavior sequences, address associations, user profiles, on-chain features
-- **XGBoost risk prediction**: Supervised learning model for risk scoring (**simplified MVP implementation**)
-- **Isolation Forest anomaly detection**: Unsupervised anomaly detection for cold-start scenarios (**simplified MVP implementation**)
-- **Automatic data collection**: Collects transaction data during production use for model training
-- **Feature caching**: Precomputed features with TTL-based caching
-
-**Implementation Status**: See [`docs/ALGORITHM_IMPLEMENTATION_STATUS.md`](docs/ALGORITHM_IMPLEMENTATION_STATUS.md) for detailed algorithm completion analysis.
-
-**⚠️ Important**: Current ML implementations are **simplified MVP versions** suitable for demonstration and proof-of-concept. For production deployment, we recommend:
-1. Training models with Python (XGBoost/scikit-learn)
-2. Exporting models to ONNX or JSON format
-3. Using ONNX Runtime or custom inference engine in Node.js
+See [Machine Learning Features](#machine-learning-features-optional-mvpsimplified-implementation) above for ML module details.
 
 ### Security & Reliability
 
@@ -371,16 +367,6 @@ Details: [Kite Whitepaper](https://gokite.ai/kite-whitepaper); full text in `doc
 
 ---
 
-## FAQ: After Freeze, How Are Funds Recovered?
-
-In AgentPayGuard, "freeze" means **the Agent is not allowed to send funds to that address**. It does **not** lock or confiscate assets already held by that address. So:
-
-- Funds **already in** the frozen address remain under the control of that address's owner (private key). The owner can move them as usual.
-- To allow the Agent to **pay that address again**, multisig members execute **unfreeze**; after that, payments to that address are permitted again by policy.
-
-If in a future design funds were held in a **vault contract** controlled by multisig, withdrawal would be a separate multisig-executed transaction (e.g. "withdraw from vault to address X"); the current SimpleFreeze only gates "Agent → recipient," not vault withdrawals.
-
----
 
 ## References (Official)
 
