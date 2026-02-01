@@ -103,7 +103,7 @@ graph TB
 
 **🔗 Contract Addresses:**
 - **Multisig**: `0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9`
-- **Freeze Contract**: `0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719`
+- **Freeze Contract**: `0x2D274B8e53DEF4389a9590A7F6e323D3b8763189`
 - **Freeze Tx**: [View on KiteScan](https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c)
 
 ### 📦 Core Modules
@@ -492,7 +492,7 @@ Optional: [Chainlink env-enc](https://www.npmjs.com/package/@chainlink/env-enc) 
 Emergency Override (Parallel Path):
   SimpleMultiSig (2/3) → Freeze Contract → Block Payments
   - Multisig: 0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9
-  - Freeze Contract: 0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719
+  - Freeze Contract: 0x2D274B8e53DEF4389a9590A7F6e323D3b8763189
   - Freeze Tx: https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c
 ```
 
@@ -682,7 +682,7 @@ In development environment, `/api` proxies to main repo API (3456). Open homepag
 
 ### Multisig Freeze Mechanism
 - **Multisig address**: `0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9`
-- **Freeze contract**: `0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719`
+- **Freeze contract**: `0x2D274B8e53DEF4389a9590A7F6e323D3b8763189`
 - **Freeze operation Tx**: https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c
 
 ---

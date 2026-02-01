@@ -151,7 +151,7 @@ async function main() {
   console.log('  Auto-reject Risk Levels:', enhancedPolicy.autoRejectRiskLevels?.join(', ') || '(none)');
 
   // Check on-chain freeze status
-  const FREEZE_CONTRACT = '0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719';
+  const FREEZE_CONTRACT = '0x2D274B8e53DEF4389a9590A7F6e323D3b8763189';
   const spentToday = await readSpentToday(env.STATE_PATH);
 
   // Step 2: AI-enhanced policy evaluation

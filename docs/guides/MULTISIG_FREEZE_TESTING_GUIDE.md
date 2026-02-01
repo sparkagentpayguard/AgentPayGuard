@@ -185,10 +185,10 @@ cast call 0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9 "transactionCount()" --rpc-
 
 ```bash
 # 查询地址是否被冻结
-cast call 0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719 "isFrozen(address)" 0x目标地址 --rpc-url https://rpc-testnet.gokite.ai/
+cast call 0x2D274B8e53DEF4389a9590A7F6e323D3b8763189 "isFrozen(address)" 0x目标地址 --rpc-url https://rpc-testnet.gokite.ai/
 
 # 查询冻结合约 owner（应该是多签地址）
-cast call 0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719 "owner()" --rpc-url https://rpc-testnet.gokite.ai/
+cast call 0x2D274B8e53DEF4389a9590A7F6e323D3b8763189 "owner()" --rpc-url https://rpc-testnet.gokite.ai/
 ```
 
 ---
@@ -203,7 +203,7 @@ import { ethers } from 'ethers';
 import { loadEnv } from './lib/config.js';
 
 const MULTISIG = '0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9';
-const FREEZE = '0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719';
+const FREEZE = '0x2D274B8e53DEF4389a9590A7F6e323D3b8763189';
 
 async function main() {
   const env = loadEnv();

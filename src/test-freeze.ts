@@ -7,7 +7,7 @@ async function main() {
   const provider = new ethers.JsonRpcProvider(env.RPC_URL, env.CHAIN_ID);
   
   // 冻结合约地址（来自 Role A 交付）
-  const FREEZE_CONTRACT = '0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719';
+  const FREEZE_CONTRACT = '0x2D274B8e53DEF4389a9590A7F6e323D3b8763189';
   
   // 测试目标：使用 Owner 2 地址（Role A 文档提到它可能被用于测试冻结）
   // 该地址在 Role A 的交付文档中标记为 "Owner 2"，并用于冻结演示

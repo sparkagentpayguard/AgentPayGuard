@@ -135,7 +135,7 @@ async function runAIPayPipeline(request: string, executeOnchain: boolean, paymen
     dailyLimit: env.DAILY_LIMIT ? ethers.parseUnits(env.DAILY_LIMIT, tokenDecimals) : undefined,
   };
   const enhancedPolicy = getAIEnhancedPolicy(basePolicy, { AI_MAX_RISK_SCORE: env.AI_MAX_RISK_SCORE, AI_AUTO_REJECT_LEVELS: env.AI_AUTO_REJECT_LEVELS });
-  const FREEZE_CONTRACT = '0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719';
+  const FREEZE_CONTRACT = '0x2D274B8e53DEF4389a9590A7F6e323D3b8763189';
 
   const riskRejectionMessage = (msg: string) => {
     const reasons = aiAssessment.reasons.join('; ');
@@ -306,7 +306,7 @@ const server = http.createServer(async (req, res) => {
         send(res, 400, { ok: false, error: 'invalid_address', message: 'Query param address (0x...) is required' });
         return;
       }
-      const FREEZE_CONTRACT = '0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719';
+      const FREEZE_CONTRACT = '0x2D274B8e53DEF4389a9590A7F6e323D3b8763189';
       const FREEZE_ABI = ['function isFrozen(address account) view returns (bool)'];
       const provider = new ethers.JsonRpcProvider(env.RPC_URL, env.CHAIN_ID);
       const contract = new ethers.Contract(FREEZE_CONTRACT, FREEZE_ABI, provider);
@@ -536,7 +536,7 @@ const server = http.createServer(async (req, res) => {
           const addr = classification.queryAddress;
           if (addr && /^0x[a-fA-F0-9]{40}$/.test(addr)) {
             try {
-              const FREEZE_CONTRACT = '0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719';
+              const FREEZE_CONTRACT = '0x2D274B8e53DEF4389a9590A7F6e323D3b8763189';
               const FREEZE_ABI = ['function isFrozen(address account) view returns (bool)'];
               const provider = new ethers.JsonRpcProvider(env.RPC_URL, env.CHAIN_ID);
               const contract = new ethers.Contract(FREEZE_CONTRACT, FREEZE_ABI, provider);

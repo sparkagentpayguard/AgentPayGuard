@@ -97,7 +97,7 @@ graph TB
 
 **🔗 合约地址：**
 - **多签地址**: `0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9`
-- **冻结合约**: `0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719`
+- **冻结合约**: `0x2D274B8e53DEF4389a9590A7F6e323D3b8763189`
 - **冻结操作 Tx**: [在 KiteScan 查看](https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c)
 
 ### 📦 核心模块
@@ -469,7 +469,7 @@ graph TB
 
 **🔗 合约地址：**
 - **多签地址**: [`0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9`](https://testnet.kitescan.ai/address/0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9)
-- **冻结合约**: [`0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719`](https://testnet.kitescan.ai/address/0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719)
+- **冻结合约**: [`0x2D274B8e53DEF4389a9590A7F6e323D3b8763189`](https://testnet.kitescan.ai/address/0x2D274B8e53DEF4389a9590A7F6e323D3b8763189)
 - **冻结操作 Tx**: [在 KiteScan 查看](https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c)
 
 ## 仓库结构
@@ -652,7 +652,7 @@ cd frontend && npm i && npm run dev
 
 ### 多签冻结机制
 - **多签地址**：`0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9`
-- **冻结合约**：`0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719`
+- **冻结合约**：`0x2D274B8e53DEF4389a9590A7F6e323D3b8763189`
 - **冻结操作 Tx**：https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c
 
 ---
