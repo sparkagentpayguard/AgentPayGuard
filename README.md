@@ -70,32 +70,45 @@ Aligned with Kite's **SPACE** direction (stablecoin-native, programmable constra
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    User / Frontend                          │
-│              (Natural Language Request)                     │
+│    (Natural Language Request / Structured Payment)          │
 └───────────────────────┬─────────────────────────────────────┘
                         │
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              API Server (src/server.ts)                     │
-│         /api/ai-pay, /api/pay, /api/ai-chat                 │
+│              API Server (src/server.ts)                    │
+│    /api/ai-pay, /api/pay, /api/ai-chat, /api/freeze        │
 └───────────────────────┬─────────────────────────────────────┘
                         │
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
-│         AI Intent Parser (src/lib/ai-intent.ts)            │
-│    Natural Language → Recipient/Amount/Purpose              │
-│    + Risk Assessment (0-100 score)                          │
+│      Agent Identity (src/lib/kite-agent-identity.ts)       │
+│    KitePass API Key / AA SDK Account Abstraction           │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│         AI Intent Parser (src/lib/ai-intent.ts)             │
+│    parseAndAssessRisk(): Intent + Risk (0-100 score)        │
+│    (Single LLM call when possible, fallback to 2 calls)    │
 └───────────────────────┬─────────────────────────────────────┘
                         │
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
 │         Policy Engine (src/lib/policy.ts)                   │
-│    Allowlist + Limits + AI Risk + ML + Freeze Check         │
+│    evaluatePolicyWithAI():                                  │
+│    ├─ Traditional Rules: Allowlist, Limits, Freeze Check   │
+│    ├─ AI Risk Assessment (from previous step)              │
+│    └─ ML Risk Detection (optional, if ENABLE_ML_FEATURES)  │
+│         ├─ Anomaly Detection (Isolation Forest MVP)        │
+│         └─ XGBoost Prediction (MVP)                        │
 └───────────────────────┬─────────────────────────────────────┘
                         │
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
-│      Payment Execution (src/lib/run-pay.ts)                  │
-│         EOA Path (erc20.ts)  │  AA Path (kite-aa.ts)        │
+│      Payment Execution (src/lib/run-pay.ts)                 │
+│    runPay():                                                │
+│    ├─ EOA Path → erc20.ts: transferErc20()                  │
+│    └─ AA Path → kite-aa.ts: sendErc20ViaAA()                │
 └───────────────────────┬─────────────────────────────────────┘
                         │
                         ▼
@@ -104,8 +117,8 @@ Aligned with Kite's **SPACE** direction (stablecoin-native, programmable constra
 │              On-chain Audit Trail                           │
 └─────────────────────────────────────────────────────────────┘
 
-Emergency Override:
-  SimpleMultiSig (2/3) → Freeze/Unfreeze
+Emergency Override (Parallel Path):
+  SimpleMultiSig (2/3) → Freeze Contract → Block Payments
   - Multisig: 0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA
   - Freeze Contract: 0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719
   - Freeze Tx: https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c
