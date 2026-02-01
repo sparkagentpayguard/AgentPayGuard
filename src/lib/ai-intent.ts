@@ -1,44 +1,80 @@
+/**
+ * AI Intent Parser / AI意图解析器
+ * 
+ * Parses natural language payment requests and performs AI-based risk assessment.
+ * Supports multiple AI providers (OpenAI, DeepSeek, Gemini, Claude, Ollama, etc.)
+ * 解析自然语言支付请求并执行基于AI的风险评估。
+ * 支持多种AI提供商（OpenAI、DeepSeek、Gemini、Claude、Ollama等）
+ */
 import OpenAI from 'openai';
 import { loadEnv } from './config.js';
 import { SimpleCache, hashString } from './cache.js';
+import { withRetry, AI_API_RETRY_OPTIONS, RetryableError, NonRetryableError } from './retry.js';
+import { validateAndSanitizeInput } from './prompt-injection.js';
+import { AIAPIError, ErrorCode, extractErrorCode, createFriendlyErrorMessage } from './errors.js';
 
+/**
+ * Payment Intent / 支付意图
+ * Structured representation of a parsed payment request
+ * 解析后的支付请求的结构化表示
+ */
 export interface PaymentIntent {
-  recipient: string;
-  amount: string; // human-readable amount like "100 USDC"
-  amountNumber: number;
-  currency: string; // "USDC", "ETH", etc.
-  purpose: string;
-  confidence: number; // 0-1
-  riskLevel: 'low' | 'medium' | 'high';
-  reasoning: string;
-  parsedSuccessfully: boolean;
+  recipient: string; // Ethereum address (0x...) or 'unknown' / 以太坊地址或'unknown'
+  amount: string; // Human-readable amount like "100 USDC" / 人类可读的金额，如"100 USDC"
+  amountNumber: number; // Numeric amount / 数值金额
+  currency: string; // Currency symbol: "USDC", "ETH", etc. / 币种符号："USDC"、"ETH"等
+  purpose: string; // Brief description of payment purpose / 支付目的的简要描述
+  confidence: number; // Parsing confidence score (0-1) / 解析置信度（0-1）
+  riskLevel: 'low' | 'medium' | 'high'; // Initial risk level from parsing / 解析时的初始风险等级
+  reasoning: string; // Reasoning for risk assessment / 风险评估的推理过程
+  parsedSuccessfully: boolean; // Whether parsing was successful / 解析是否成功
 }
 
+/**
+ * Risk Assessment / 风险评估
+ * AI-based risk evaluation result
+ * 基于AI的风险评估结果
+ */
 export interface RiskAssessment {
-  score: number; // 0-100
-  level: 'low' | 'medium' | 'high';
-  reasons: string[];
-  recommendations: string[];
+  score: number; // Risk score (0-100, higher = more risky) / 风险分数（0-100，越高越危险）
+  level: 'low' | 'medium' | 'high'; // Risk level / 风险等级
+  reasons: string[]; // List of risk reasons / 风险原因列表
+  recommendations: string[]; // Recommendations for risk mitigation / 风险缓解建议
 }
 
-// 支持的API提供商类型
+/**
+ * Supported AI Provider Types / 支持的AI提供商类型
+ */
 type AIProvider = 'openai' | 'deepseek' | 'gemini' | 'claude' | 'local' | 'ollama' | 'lmstudio' | 'none';
 
+/**
+ * AI Intent Parser Class / AI意图解析器类
+ * 
+ * Main class for parsing natural language payment requests and assessing risks using AI.
+ * Supports multiple providers with automatic fallback and caching.
+ * 用于解析自然语言支付请求并使用AI评估风险的主类。
+ * 支持多种提供商，具有自动回退和缓存功能。
+ */
 export class AIIntentParser {
-  private openai: OpenAI | null = null;
-  private env: ReturnType<typeof loadEnv>;
-  private provider: AIProvider = 'none';
-  private model: string = '';
-  private cache: SimpleCache<{ intent: PaymentIntent; risk: RiskAssessment }>;
-  /** 按 (recipient, amount, purpose) 的短时缓存，避免同一笔支付重复评估 */
+  private openai: OpenAI | null = null; // OpenAI-compatible client (works with multiple providers) / OpenAI兼容客户端（支持多种提供商）
+  private env: ReturnType<typeof loadEnv>; // Environment configuration / 环境配置
+  private provider: AIProvider = 'none'; // Selected AI provider / 选定的AI提供商
+  private model: string = ''; // Selected model name / 选定的模型名称
+  private cache: SimpleCache<{ intent: PaymentIntent; risk: RiskAssessment }>; // Response cache (300s TTL) / 响应缓存（300秒TTL）
+  /** Short-term cache by (recipient, amount, purpose) to avoid duplicate assessments / 按(recipient, amount, purpose)的短时缓存，避免同一笔支付重复评估 */
   private intentCache: SimpleCache<{ intent: PaymentIntent; risk: RiskAssessment }>;
 
+  /**
+   * Constructor / 构造函数
+   * Initializes the parser with environment configuration and selects the best available AI provider
+   * 使用环境配置初始化解析器，并选择最佳可用的AI提供商
+   */
   constructor() {
     this.env = loadEnv();
-    this.cache = new SimpleCache(300);
+    this.cache = new SimpleCache(300); // 5-minute cache / 5分钟缓存
     this.intentCache = new SimpleCache(300);
     
-    // 确定使用哪个API提供商
+    // Determine which API provider to use / 确定使用哪个API提供商
     this.provider = this.determineProvider();
     this.model = this.determineModel();
     
@@ -47,32 +83,46 @@ export class AIIntentParser {
     }
   }
 
+  /**
+   * Determine AI Provider / 确定AI提供商
+   * Selects the best available provider based on API keys (prioritizes free providers)
+   * 根据API密钥选择最佳可用提供商（优先选择免费提供商）
+   * 
+   * @returns {AIProvider} Selected provider or 'none' if none available / 选定的提供商，如果都不可用则返回'none'
+   */
   private determineProvider(): AIProvider {
     if (!this.env.ENABLE_AI_INTENT) return 'none';
     
-    // 检查各种API密钥，按优先级排序
-    if (this.env.DEEPSEEK_API_KEY) return 'deepseek';      // 免费额度
-    if (this.env.GEMINI_API_KEY) return 'gemini';          // 免费额度
-    if (this.env.OPENAI_API_KEY) return 'openai';          // 付费
-    if (this.env.CLAUDE_API_KEY) return 'claude';          // 付费
-    if (this.env.OLLAMA_URL) return 'ollama';              // 免费本地
-    if (this.env.LMSTUDIO_URL) return 'lmstudio';          // 免费本地
-    if (this.env.LOCAL_AI_URL) return 'local';             // 通用本地
+    // Check API keys in priority order (free providers first) / 按优先级检查API密钥（免费提供商优先）
+    if (this.env.DEEPSEEK_API_KEY) return 'deepseek';      // Free tier / 免费额度
+    if (this.env.GEMINI_API_KEY) return 'gemini';          // Free tier / 免费额度
+    if (this.env.OPENAI_API_KEY) return 'openai';          // Paid / 付费
+    if (this.env.CLAUDE_API_KEY) return 'claude';          // Paid / 付费
+    if (this.env.OLLAMA_URL) return 'ollama';              // Free local / 免费本地
+    if (this.env.LMSTUDIO_URL) return 'lmstudio';          // Free local / 免费本地
+    if (this.env.LOCAL_AI_URL) return 'local';             // Generic local / 通用本地
     
     return 'none';
   }
 
+  /**
+   * Determine Model Name / 确定模型名称
+   * Selects the model to use (user-specified or provider default, prioritizing faster models)
+   * 选择要使用的模型（用户指定或提供商默认，优先选择更快的模型）
+   * 
+   * @returns {string} Model name / 模型名称
+   */
   private determineModel(): string {
-    // 如果用户指定了模型，使用用户指定的
+    // Use user-specified model if provided / 如果用户指定了模型，使用用户指定的
     if (this.env.AI_MODEL) return this.env.AI_MODEL;
     
-    // 否则根据提供商设置默认模型
+    // Otherwise set default model based on provider (prioritize faster models) / 否则根据提供商设置默认模型（优先选择更快的模型）
     switch (this.provider) {
-      case 'openai': return 'gpt-4o-mini';
-      case 'deepseek': return 'deepseek-chat';
-      case 'gemini': return 'gemini-1.5-pro';
-      case 'claude': return 'claude-3-haiku';
-      case 'ollama': return 'llama3.2';
+      case 'openai': return 'gpt-4o-mini'; // Fastest and cheapest / 最快且便宜
+      case 'deepseek': return 'deepseek-chat'; // Free and fast / 免费且快速
+      case 'gemini': return 'gemini-1.5-flash'; // Flash version is faster (if supported) / Flash版本更快（如果支持）
+      case 'claude': return 'claude-3-haiku-20240307'; // Haiku is fastest / Haiku最快
+      case 'ollama': return 'llama3.2'; // Or qwen2.5:7b (smaller and faster) / 或qwen2.5:7b（更小更快）
       case 'lmstudio': return 'local-model';
       case 'local': return 'local-model';
       default: return 'gpt-4o-mini';
@@ -162,6 +212,20 @@ export class AIIntentParser {
       return this.fallbackParse(userMessage);
     }
 
+    // 1. 验证和清理输入（防止提示注入）
+    let sanitizedMessage: string;
+    try {
+      sanitizedMessage = validateAndSanitizeInput(userMessage, {
+        maxLength: 1000,
+        allowInjection: false // 严格模式：检测到注入直接抛出错误
+      });
+    } catch (error) {
+      console.error('[AI] Input validation failed:', error);
+      // 如果输入验证失败，使用回退解析器
+      return this.fallbackParse(userMessage);
+    }
+
+    // 2. Use retry mechanism to call AI API / 使用重试机制调用 AI API
     try {
       const systemPrompt = `You are a payment intent parser for a blockchain payment system.
 Extract structured information from user payment requests.
@@ -188,19 +252,47 @@ Example inputs:
 - "Send 0.5 ETH to my supplier"
 - "Transfer $50 to vendor for office supplies"`;
 
-      const completion = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage }
-        ],
-        temperature: 0.1,
-        response_format: { type: "json_object" }
-      });
+      // Optimize parameters: lower temperature, limit max_tokens, set timeout / 优化参数：降低 temperature，限制 max_tokens，设置超时
+      const temperature = this.env.AI_TEMPERATURE ?? 0.1;
+      const maxTokens = this.env.AI_MAX_TOKENS;
+      const timeout = this.env.AI_TIMEOUT_MS ?? 30000;
+
+      const completion = await withRetry(
+        async () => {
+          const completionPromise = this.openai!.chat.completions.create({
+            model: this.model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: sanitizedMessage }
+            ],
+            temperature,
+            max_tokens: maxTokens,
+            response_format: { type: "json_object" }
+          });
+
+          // 添加超时控制
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('AI API timeout')), timeout);
+          });
+
+          return await Promise.race([completionPromise, timeoutPromise]);
+        },
+        {
+          ...AI_API_RETRY_OPTIONS,
+          onRetry: (attempt: number, error: Error) => {
+            console.warn(`[AI] Retry attempt ${attempt} for parsePaymentIntent: ${error.message}`);
+          }
+        }
+      );
 
       const content = completion.choices[0]?.message?.content;
       if (!content) {
-        throw new Error('No response from AI');
+        throw new AIAPIError(
+          ErrorCode.AI_API_INVALID_RESPONSE,
+          'No response from AI',
+          this.provider,
+          this.model
+        );
       }
 
       const parsed = JSON.parse(content);
@@ -208,11 +300,38 @@ Example inputs:
       return {
         ...parsed,
         parsedSuccessfully: true,
-        riskLevel: parsed.riskLevel.toLowerCase() as 'low' | 'medium' | 'high'
+        riskLevel: parsed.riskLevel?.toLowerCase() as 'low' | 'medium' | 'high' || 'medium'
       };
-    } catch (error) {
-      console.error('[AI] Error parsing intent:', error);
-      return this.fallbackParse(userMessage);
+    } catch (error: unknown) {
+      // Handle retry errors / 处理重试错误
+      if (error instanceof RetryableError) {
+        console.error(`[AI] Failed after retries: ${error.message}`);
+        const errorCode = extractErrorCode(error.originalError);
+        throw new AIAPIError(
+          errorCode,
+          createFriendlyErrorMessage(error.originalError),
+          this.provider,
+          this.model,
+          { originalError: error.originalError.message, attempts: error.attempt }
+        );
+      } else if (error instanceof NonRetryableError) {
+        console.error(`[AI] Non-retryable error: ${error.message}`);
+        throw new AIAPIError(
+          extractErrorCode(error.originalError),
+          createFriendlyErrorMessage(error.originalError),
+          this.provider,
+          this.model,
+          { originalError: error.originalError.message }
+        );
+      } else if (error instanceof AIAPIError) {
+        throw error;
+      } else {
+        // Handle unknown errors / 处理未知错误
+        const err = error instanceof Error ? error : new Error(String(error));
+        console.error('[AI] Error parsing intent:', err);
+        // Non-retryable error, use fallback parser / 非重试错误，使用回退解析器
+        return this.fallbackParse(userMessage);
+      }
     }
   }
 
@@ -265,6 +384,19 @@ Example inputs:
     spentToday?: number;
   }): Promise<{ intent: PaymentIntent; risk: RiskAssessment } | null> {
     if (!this.isEnabled() || !this.openai) return null;
+    
+    // 验证和清理输入
+    let sanitizedMessage: string;
+    try {
+      sanitizedMessage = validateAndSanitizeInput(userMessage, {
+        maxLength: 1000,
+        allowInjection: false
+      });
+    } catch (error) {
+      console.error('[AI] Input validation failed in parseAndAssessRiskInOneCall:', error);
+      return null;
+    }
+    
     const contextStr = context ? JSON.stringify(context, null, 2) : 'No additional context';
     const systemPrompt = `You are a payment intent parser and risk assessor for a blockchain payment system.
 From the user's natural language payment request, output a single JSON object with two keys: "intent" and "risk".
@@ -287,18 +419,42 @@ From the user's natural language payment request, output a single JSON object wi
 
 Rules: Default currency USDC. Consider wallet balance and spent today (if in context). Be conservative on risk.`;
 
-    const userPrompt = `User payment request:\n${userMessage}\n\nContext:\n${contextStr}\n\nOutput one JSON: { "intent": {...}, "risk": {...} }`;
+    const userPrompt = `User payment request:\n${sanitizedMessage}\n\nContext:\n${contextStr}\n\nOutput one JSON: { "intent": {...}, "risk": {...} }`;
 
     try {
-      const completion = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.1,
-        response_format: { type: 'json_object' }
-      });
+      // 优化参数
+      const temperature = this.env.AI_TEMPERATURE ?? 0.1;
+      const maxTokens = this.env.AI_MAX_TOKENS;
+      const timeout = this.env.AI_TIMEOUT_MS ?? 30000;
+
+      const completion = await withRetry(
+        async () => {
+          const completionPromise = this.openai!.chat.completions.create({
+            model: this.model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            temperature,
+            max_tokens: maxTokens,
+            response_format: { type: 'json_object' }
+          });
+
+          // 添加超时控制
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('AI API timeout')), timeout);
+          });
+
+          return await Promise.race([completionPromise, timeoutPromise]);
+        },
+        {
+          ...AI_API_RETRY_OPTIONS,
+          onRetry: (attempt: number, error: Error) => {
+            console.warn(`[AI] Retry attempt ${attempt} for parseAndAssessRiskInOneCall: ${error.message}`);
+          }
+        }
+      );
+      
       const content = completion.choices[0]?.message?.content;
       if (!content) return null;
       const parsed = JSON.parse(content);
@@ -324,7 +480,7 @@ Rules: Default currency USDC. Consider wallet balance and spent today (if in con
       };
       return { intent, risk };
     } catch (e) {
-      console.error('[AI] parseAndAssessRiskInOneCall failed:', e);
+      console.error('[AI] parseAndAssessRiskInOneCall failed after retries:', e);
       return null;
     }
   }
@@ -416,24 +572,62 @@ ${contextStr}
 
 Please provide risk assessment.`;
 
-      const completion = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.2,
-        response_format: { type: "json_object" }
-      });
+      // 优化参数
+      const temperature = this.env.AI_TEMPERATURE ?? 0.2;
+      const maxTokens = this.env.AI_MAX_TOKENS;
+      const timeout = this.env.AI_TIMEOUT_MS ?? 30000;
+
+      const completion = await withRetry(
+        async () => {
+          const completionPromise = this.openai!.chat.completions.create({
+            model: this.model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            temperature,
+            max_tokens: maxTokens,
+            response_format: { type: "json_object" }
+          });
+
+          // 添加超时控制
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('AI API timeout')), timeout);
+          });
+
+          return await Promise.race([completionPromise, timeoutPromise]);
+        },
+        {
+          ...AI_API_RETRY_OPTIONS,
+          onRetry: (attempt: number, error: Error) => {
+            console.warn(`[AI] Retry attempt ${attempt} for assessRisk: ${error.message}`);
+          }
+        }
+      );
 
       const content = completion.choices[0]?.message?.content;
       if (!content) {
-        throw new Error('No response from AI');
+        throw new AIAPIError(
+          ErrorCode.AI_API_INVALID_RESPONSE,
+          'No response from AI',
+          this.provider,
+          this.model
+        );
       }
 
-      return JSON.parse(content);
+      const parsed = JSON.parse(content);
+      return {
+        score: Math.min(100, Math.max(0, Number(parsed.score) ?? 50)),
+        level: (String(parsed.level).toLowerCase() as 'low' | 'medium' | 'high') || 'medium',
+        reasons: Array.isArray(parsed.reasons) ? parsed.reasons : [],
+        recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : []
+      };
     } catch (error) {
-      console.error('[AI] Error assessing risk:', error);
+      console.error('[AI] Error assessing risk after retries:', error);
+      // 如果是重试错误，记录但不抛出（使用回退）
+      if (error instanceof RetryableError || error instanceof NonRetryableError || error instanceof AIAPIError) {
+        console.warn('[AI] Using fallback risk assessment due to API error');
+      }
       return this.fallbackRiskAssessment(intent);
     }
   }

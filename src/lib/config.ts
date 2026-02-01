@@ -63,9 +63,26 @@ export const EnvSchema = z.object({
   AI_MODEL: z.string().default('gpt-4o-mini'),
   ENABLE_AI_INTENT: boolFromEnv(false),
 
+  // AI 性能优化配置
+  AI_MAX_TOKENS: z.coerce.number().int().positive().optional(), // 限制输出长度，加快响应（默认：不限制）
+  AI_TEMPERATURE: z.coerce.number().min(0).max(2).optional(), // 温度参数（默认：0.1，更快更确定）
+  AI_TIMEOUT_MS: z.coerce.number().int().positive().optional(), // AI API 超时时间（毫秒，默认：30000）
+  AI_ENABLE_STREAMING: boolFromEnv(false), // 启用流式响应（默认：false，兼容性优先）
+
   // AI 风控阈值（可选，不设则用默认值）
   AI_MAX_RISK_SCORE: z.coerce.number().int().min(0).max(100).optional(),
-  AI_AUTO_REJECT_LEVELS: z.string().optional() // 逗号分隔，如 "high" 或 "high,medium"
+  AI_AUTO_REJECT_LEVELS: z.string().optional(), // 逗号分隔，如 "high" 或 "high,medium"
+
+  // ML Features (机器学习特征，冷启动策略)
+  ENABLE_ML_FEATURES: boolFromEnv(false), // 启用ML特征工程和异常检测
+  ML_DATA_PATH: z.string().optional().default('./data/training'), // ML数据存储路径
+
+  // Kite Agent Identity (KitePass / Agent Passport)
+  KITE_API_KEY: z.string().optional(), // KitePass API Key（从 https://app.gokite.ai/ 获取）
+  KITE_AGENT_NAME: z.string().optional().default('AgentPayGuard'), // Agent 名称
+
+  // AI System Prompt (可选，自定义系统提示词)
+  AI_SYSTEM_PROMPT: z.string().optional() // 自定义 AI 聊天助手的系统提示词（如果设置，将覆盖自动生成的提示词）
 });
 
 export type Env = z.infer<typeof EnvSchema>;

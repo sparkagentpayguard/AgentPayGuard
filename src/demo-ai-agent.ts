@@ -7,6 +7,7 @@ import { AIIntentParser } from './lib/ai-intent.js';
 import { parseAllowlist, evaluatePolicyWithAI, getAIEnhancedPolicy, prepareAmountForEvaluation } from './lib/policy.js';
 import { addSpentToday, readSpentToday } from './lib/state.js';
 import { sendErc20ViaAA } from './lib/kite-aa.js';
+import { getKiteAgentIdentity } from './lib/kite-agent-identity.js';
 
 /**
  * AI Agent Payment Demo
@@ -41,6 +42,24 @@ async function main() {
   console.log('🤖 AI Agent Payment Demo');
   console.log('=======================\n');
   console.log('Request:', naturalLanguageRequest);
+
+  // Initialize Agent Identity (满足规则要求：使用 Kite Agent 或身份体系)
+  const agentIdentity = getKiteAgentIdentity();
+  if (agentIdentity.isInitialized()) {
+    const identity = agentIdentity.getAgentIdentity();
+    if (identity) {
+      console.log(`\n🆔 Agent Identity: ${identity.agentName}`);
+      console.log(`   Agent ID: ${identity.agentId.substring(0, 30)}...`);
+      console.log(`   Verified: ${identity.verified ? '✅' : '⚠️'}`);
+      if (identity.verifiedAt) {
+        console.log(`   Verified At: ${identity.verifiedAt.toISOString()}`);
+      }
+    }
+  } else {
+    console.log('\n⚠️  Agent Identity: 未初始化');
+    console.log('   提示: 设置 KITE_API_KEY 以使用 KitePass 身份（推荐）');
+    console.log('   或使用 PRIVATE_KEY 对应的 EOA 地址作为 Agent 身份标识');
+  }
 
   const provider = new ethers.JsonRpcProvider(env.RPC_URL, env.CHAIN_ID);
   
@@ -79,6 +98,27 @@ async function main() {
     console.error('\n❌ Error: No recipient address specified or parsed');
     console.error('   Please specify recipient in request or set RECIPIENT in .env');
     process.exit(1);
+  }
+
+  // 将支付请求与 Agent 身份绑定（满足规则要求）
+  if (agentIdentity.isInitialized()) {
+    try {
+      const boundPayment = await agentIdentity.bindPaymentToAgent({
+        recipient: finalRecipient,
+        amount: paymentIntent.amount,
+        purpose: paymentIntent.purpose
+      });
+      console.log(`\n🔗 Payment bound to Agent: ${boundPayment.agentName}`);
+      console.log(`   Identity Type: ${boundPayment.identityType}`);
+      if (boundPayment.agentAddress) {
+        console.log(`   Agent Address (AA Account): ${boundPayment.agentAddress}`);
+      }
+      if (boundPayment.ownerEOA) {
+        console.log(`   Owner EOA: ${boundPayment.ownerEOA}`);
+      }
+    } catch (error) {
+      console.warn('\n⚠️  Failed to bind payment to Agent identity:', error);
+    }
   }
 
   // Get token decimals and convert amount

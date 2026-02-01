@@ -1,5 +1,10 @@
 import { ethers } from 'ethers';
 import { AIIntentParser, PaymentIntent, RiskAssessment } from './ai-intent.js';
+import { getMLService } from './ml/ml-service.js';
+import { HistoricalData } from './ml/features.js';
+import { withRetry, CHAIN_RPC_RETRY_OPTIONS } from './retry.js';
+import { ChainRPCError, ErrorCode, extractErrorCode, createFriendlyErrorMessage } from './errors.js';
+import { queryFreezeStatusBatch } from './async-chain.js';
 
 export type Policy = {
   allowlist?: string[];
@@ -71,10 +76,12 @@ export async function evaluatePolicy(args: {
   }
 
   // 2. Check On-chain Freeze Status (Strong Consistency)
+  // 使用批量查询接口（即使只有一个地址，也使用批量接口以保持一致性）
   if (provider && freezeContractAddress) {
     try {
-      const freezeContract = new ethers.Contract(freezeContractAddress, FREEZE_ABI, provider);
-      const isFrozen: boolean = await freezeContract.isFrozen(recipient);
+      // 使用批量查询接口（支持并行查询，即使只有一个地址）
+      const freezeMap = await queryFreezeStatusBatch(provider, freezeContractAddress, [recipient]);
+      const isFrozen = freezeMap.get(recipient) ?? false;
       
       if (isFrozen) {
         return {
@@ -85,8 +92,15 @@ export async function evaluatePolicy(args: {
       }
     } catch (error: any) {
       // In Strong Consistency mode, we fail if we can't verify status
-      console.error('[Policy] Failed to check freeze status:', error);
-      throw new Error(`策略校验失败：无法验证链上冻结状态 (${error.message})`);
+      console.error('[Policy] Failed to check freeze status after retries:', error);
+      const errorCode = extractErrorCode(error);
+      throw new ChainRPCError(
+        errorCode,
+        `策略校验失败：无法验证链上冻结状态 (${createFriendlyErrorMessage(error)})`,
+        undefined, // RPC URL (not easily accessible from Provider)
+        undefined, // Chain ID (not easily accessible from Provider)
+        { recipient, freezeContractAddress, originalError: error.message }
+      );
     }
   }
 
@@ -130,6 +144,7 @@ export async function evaluatePolicyWithAI(args: {
   context?: {
     historicalPayments?: Array<{recipient: string, amount: number, timestamp: Date}>;
     walletBalance?: number;
+    spentToday?: number;
   };
 }): Promise<EnhancedPolicyDecision> {
   const { 
@@ -218,6 +233,96 @@ export async function evaluatePolicyWithAI(args: {
           warnings.push(...aiAssessment.recommendations.map(rec => `建议：${rec}`));
         }
       }
+
+      // Step 2.5: ML异常检测和XGBoost风险评估（如果启用）
+      const mlService = getMLService();
+      if (mlService.isEnabled() && finalPaymentIntent) {
+        try {
+          // 计算特征
+          const historicalData: HistoricalData = {
+            transactions: context?.historicalPayments?.map(p => ({
+              recipient: p.recipient,
+              amount: p.amount,
+              timestamp: p.timestamp,
+              purpose: finalPaymentIntent.purpose
+            })) || []
+          };
+          
+          const features = await mlService.computeFeatures(
+            finalPaymentIntent,
+            {
+              walletBalance: context?.walletBalance,
+              spentToday: context?.spentToday ? Number(context.spentToday) : undefined
+            },
+            historicalData.transactions.length > 0 ? historicalData : undefined
+          );
+
+          // 1. 异常检测（孤立森林）
+          const anomalyResult = await mlService.detectAnomaly(features);
+          
+          if (anomalyResult.isAnomaly) {
+            // 异常检测触发，提高风险分数
+            const anomalyRiskBoost = Math.abs(anomalyResult.anomalyScore) * 30; // 最多增加30分
+            aiAssessment.score = Math.min(100, aiAssessment.score + anomalyRiskBoost);
+            aiAssessment.reasons.push(`异常检测：异常分数 ${anomalyResult.anomalyScore.toFixed(2)}`);
+            if (anomalyResult.reasons && anomalyResult.reasons.length > 0) {
+              aiAssessment.reasons.push(...anomalyResult.reasons);
+            }
+            
+            // 如果异常分数很高，可能直接拒绝
+            if (anomalyResult.anomalyScore < -0.7 && aiAssessment.score > (policy.maxRiskScore || 70)) {
+              return {
+                baseDecision: {
+                  ok: false,
+                  code: 'AI_RISK_TOO_HIGH',
+                  message: `异常检测发现高风险模式：${anomalyResult.reasons?.join('; ') || '异常交易特征'}`
+                },
+                aiAssessment,
+                paymentIntent: finalPaymentIntent,
+                aiEnabled: true,
+                warnings
+              };
+            }
+          }
+
+          // 2. XGBoost 风险评估（如果模型已训练）
+          const xgboostStatus = mlService.getXGBoostModelStatus();
+          if (xgboostStatus.isTrained) {
+            const xgboostPrediction = await mlService.predictRiskWithXGBoost(features);
+            
+            // 融合 XGBoost 预测结果（加权平均）
+            const xgboostWeight = 0.4; // XGBoost 权重
+            const aiWeight = 0.6; // AI 评估权重
+            
+            const fusedScore = aiAssessment.score * aiWeight + xgboostPrediction.riskScore * xgboostWeight;
+            aiAssessment.score = Math.round(fusedScore);
+            
+            // 添加 XGBoost 理由
+            if (xgboostPrediction.riskScore > 70) {
+              aiAssessment.reasons.push(`XGBoost模型评估：高风险 (${xgboostPrediction.riskScore.toFixed(1)})`);
+            }
+            
+            // 如果 XGBoost 预测高风险，可能直接拒绝
+            if (xgboostPrediction.riskScore > (policy.maxRiskScore || 80)) {
+              return {
+                baseDecision: {
+                  ok: false,
+                  code: 'AI_RISK_TOO_HIGH',
+                  message: `XGBoost模型评估高风险：${xgboostPrediction.riskScore.toFixed(1)}分`
+                },
+                aiAssessment,
+                paymentIntent: finalPaymentIntent,
+                aiEnabled: true,
+                warnings
+              };
+            }
+          }
+        } catch (error) {
+          console.error('[ML] Failed to perform ML risk assessment:', error);
+          // 不影响主流程，只记录警告
+          warnings.push('ML风险评估失败，跳过ML检查');
+        }
+      }
     } catch (error) {
       console.error('[AI] Failed to assess risk:', error);
       if (policy.requireAIAssessment) {
@@ -259,6 +364,59 @@ export async function evaluatePolicyWithAI(args: {
     provider,
     freezeContractAddress
   });
+
+  // Step 4: 数据收集（如果启用ML功能）
+  const mlService = getMLService();
+  if (mlService.isEnabled() && finalPaymentIntent && aiAssessment) {
+    try {
+      // 计算特征（如果之前没计算过）
+      let features;
+      try {
+        const historicalData: HistoricalData = {
+          transactions: context?.historicalPayments?.map(p => ({
+            recipient: p.recipient,
+            amount: p.amount,
+            timestamp: p.timestamp,
+            purpose: finalPaymentIntent.purpose
+          })) || []
+        };
+        
+        features = await mlService.computeFeatures(
+          finalPaymentIntent,
+          {
+            walletBalance: context?.walletBalance,
+            spentToday: context?.spentToday ? Number(context.spentToday) : undefined
+          },
+          historicalData.transactions.length > 0 ? historicalData : undefined
+        );
+      } catch (error) {
+        console.error('[ML] Failed to compute features for data collection:', error);
+        // 使用基础特征
+        features = {
+          amountNumber: finalPaymentIntent.amountNumber,
+          walletBalance: context?.walletBalance,
+          spentToday: context?.spentToday ? Number(context.spentToday) : undefined
+        };
+      }
+
+      // 收集数据（异步，不阻塞主流程）
+      mlService.collectTransaction(
+        features,
+        finalPaymentIntent,
+        aiAssessment,
+        baseDecision,
+        {
+          walletBalance: context?.walletBalance,
+          spentToday: context?.spentToday ? Number(context.spentToday) : undefined
+        }
+      ).catch(err => {
+        console.error('[ML] Failed to collect transaction data:', err);
+      });
+    } catch (error) {
+      console.error('[ML] Failed to collect data:', error);
+      // 不影响主流程
+    }
+  }
 
   // Combine results
   if (baseDecision.ok) {
