@@ -156,14 +156,14 @@ Anomaly/High Risk → SimpleMultiSig (2/3 Multisig) Intervention: Freeze/Unfreez
 Natural language request → AI intent parsing → Risk assessment → Policy check → On-chain execution
 ```
 
-### Machine Learning Features (Optional)
+### Machine Learning Features (Optional, MVP/Simplified Implementation)
 
-The system includes a comprehensive ML module for advanced risk detection:
+The system includes an ML module for advanced risk detection. **Note: Current implementations are simplified MVP versions for demonstration purposes.**
 
-#### 🧠 ML-Based Risk Detection
+#### 🧠 ML-Based Risk Detection (MVP)
 - **59-dimensional feature engineering**: Time windows (1h/24h/7d/30d), behavior sequences, address associations, user profiles, on-chain features
-- **XGBoost model**: Supervised risk prediction model (simplified implementation, production-ready version recommended)
-- **Isolation Forest**: Unsupervised anomaly detection for cold-start scenarios (simplified implementation)
+- **XGBoost model**: Supervised risk prediction model (**simplified MVP implementation**, production-ready version recommended)
+- **Isolation Forest**: Unsupervised anomaly detection for cold-start scenarios (**simplified MVP implementation**)
 - **Automatic data collection**: Collects transaction data for model training during production use
 - **Feature caching**: Precomputed features for common recipients (1h TTL) and users (30min TTL)
 
@@ -174,7 +174,7 @@ ENABLE_ML_FEATURES=1
 ML_DATA_PATH=./data/training  # Data storage path
 ```
 
-**Note**: Current ML implementations are simplified versions. For production use, we recommend training models with Python XGBoost/scikit-learn and exporting to ONNX/JSON format for Node.js inference. See [`docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md`](docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md) for details.
+**⚠️ Important**: Current ML implementations are **simplified MVP versions** suitable for demonstration and proof-of-concept. For production use, we recommend training models with Python XGBoost/scikit-learn and exporting to ONNX/JSON format for Node.js inference. See [`docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md`](docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md) for production-ready implementation details.
 
 ### Security Features
 
@@ -243,19 +243,19 @@ AI_MODEL=deepseek-chat
 
 ## Advanced Features
 
-### Machine Learning Module
+### Machine Learning Module (MVP/Simplified Implementation)
 
-The project includes a comprehensive ML module for advanced risk detection (enabled with `ENABLE_ML_FEATURES=1`):
+The project includes an ML module for advanced risk detection (enabled with `ENABLE_ML_FEATURES=1`). **⚠️ Note: Current implementations are simplified MVP versions for demonstration purposes.**
 
 - **59-dimensional feature engineering**: Time windows, behavior sequences, address associations, user profiles, on-chain features
-- **XGBoost risk prediction**: Supervised learning model for risk scoring
-- **Isolation Forest anomaly detection**: Unsupervised anomaly detection for cold-start scenarios
+- **XGBoost risk prediction**: Supervised learning model for risk scoring (**simplified MVP implementation**)
+- **Isolation Forest anomaly detection**: Unsupervised anomaly detection for cold-start scenarios (**simplified MVP implementation**)
 - **Automatic data collection**: Collects transaction data during production use for model training
 - **Feature caching**: Precomputed features with TTL-based caching
 
 **Implementation Status**: See [`docs/ALGORITHM_IMPLEMENTATION_STATUS.md`](docs/ALGORITHM_IMPLEMENTATION_STATUS.md) for detailed algorithm completion analysis.
 
-**Note**: Current ML implementations are simplified versions suitable for MVP. For production deployment, we recommend:
+**⚠️ Important**: Current ML implementations are **simplified MVP versions** suitable for demonstration and proof-of-concept. For production deployment, we recommend:
 1. Training models with Python (XGBoost/scikit-learn)
 2. Exporting models to ONNX or JSON format
 3. Using ONNX Runtime or custom inference engine in Node.js
@@ -294,17 +294,17 @@ See [`docs/PERFORMANCE_OPTIMIZATION.md`](docs/PERFORMANCE_OPTIMIZATION.md) for d
    - **Improvement**: Local or edge-deployed models (Ollama, LM Studio) for sub-second latency
    - **Why**: Reduces latency from seconds to milliseconds, enables real-time payment decisions
 
-2. **ML-based Risk Detection** ✅ **Implemented**
-   - **Current**: ✅ XGBoost model + Isolation Forest implemented (simplified versions)
+2. **ML-based Risk Detection** ✅ **Implemented (MVP)**
+   - **Current**: ✅ XGBoost model + Isolation Forest implemented (**simplified MVP versions**)
    - **Status**: 59-dimensional feature engineering complete, models integrated into policy engine
-   - **Note**: Current implementations are simplified. Production use recommended: train with Python XGBoost/scikit-learn, export to ONNX/JSON
+   - **Note**: Current implementations are **simplified MVP versions** for demonstration. Production use recommended: train with Python XGBoost/scikit-learn, export to ONNX/JSON
    - **Why**: Combines LLM's contextual understanding with ML's pattern recognition for higher accuracy
    - **See**: [`docs/ALGORITHM_IMPLEMENTATION_STATUS.md`](docs/ALGORITHM_IMPLEMENTATION_STATUS.md) for implementation details
 
-3. **Anomaly Detection** ✅ **Implemented**
-   - **Current**: ✅ Isolation Forest implemented (simplified version using Z-score statistics)
+3. **Anomaly Detection** ✅ **Implemented (MVP)**
+   - **Current**: ✅ Isolation Forest implemented (**simplified MVP version** using Z-score statistics)
    - **Status**: Integrated into policy engine, supports cold-start with fallback rules
-   - **Note**: Simplified implementation. Production use recommended: use Python scikit-learn IsolationForest
+   - **Note**: **Simplified MVP implementation**. Production use recommended: use Python scikit-learn IsolationForest
    - **Why**: Detects novel attack patterns that rules and supervised models miss
 
 ### Long-term (P1/P2)

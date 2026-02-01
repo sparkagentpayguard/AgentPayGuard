@@ -149,14 +149,14 @@ User(授权/配置策略)
 自然语言请求 → AI意图解析 → 风险评估 → 策略检查 → 链上执行
 ```
 
-### 机器学习功能（可选）
+### 机器学习功能（可选，MVP/简化实现）
 
-系统包含完整的 ML 模块，用于高级风险检测：
+系统包含 ML 模块，用于高级风险检测。**注意：当前实现为简化 MVP 版本，用于演示目的。**
 
-#### 🧠 ML 风险评估
+#### 🧠 ML 风险评估（MVP）
 - **59维特征工程**：时间窗口（1h/24h/7d/30d）、行为序列、地址关联、用户画像、链上特征
-- **XGBoost 模型**：有监督风险预测模型（简化实现，生产环境建议使用完整版本）
-- **孤立森林**：无监督异常检测，支持冷启动场景（简化实现）
+- **XGBoost 模型**：有监督风险预测模型（**简化 MVP 实现**，生产环境建议使用完整版本）
+- **孤立森林**：无监督异常检测，支持冷启动场景（**简化 MVP 实现**）
 - **自动数据收集**：生产环境中自动收集交易数据用于模型训练
 - **特征缓存**：常用收款地址特征预计算（1小时TTL）和用户特征缓存（30分钟TTL）
 
@@ -167,7 +167,7 @@ ENABLE_ML_FEATURES=1
 ML_DATA_PATH=./data/training  # 数据存储路径
 ```
 
-**注意**：当前 ML 实现是简化版本。生产环境建议使用 Python XGBoost/scikit-learn 训练模型，导出为 ONNX/JSON 格式在 Node.js 中推理。详见 [`docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md`](docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md)。
+**⚠️ 重要提示**：当前 ML 实现为**简化 MVP 版本**，适用于演示和概念验证。生产环境建议使用 Python XGBoost/scikit-learn 训练模型，导出为 ONNX/JSON 格式在 Node.js 中推理。详见 [`docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md`](docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md) 了解生产级实现细节。
 
 ### 安全特性
 
@@ -236,19 +236,19 @@ AI_MODEL=deepseek-chat
 
 ## 🚀 高级功能
 
-### 机器学习模块
+### 机器学习模块（MVP/简化实现）
 
-项目包含完整的 ML 模块，用于高级风险检测（通过 `ENABLE_ML_FEATURES=1` 启用）：
+项目包含 ML 模块，用于高级风险检测（通过 `ENABLE_ML_FEATURES=1` 启用）。**⚠️ 注意：当前实现为简化 MVP 版本，用于演示目的。**
 
 - **59维特征工程**：时间窗口、行为序列、地址关联、用户画像、链上特征
-- **XGBoost 风险预测**：有监督学习模型进行风险评分
-- **孤立森林异常检测**：无监督异常检测，支持冷启动场景
+- **XGBoost 风险预测**：有监督学习模型进行风险评分（**简化 MVP 实现**）
+- **孤立森林异常检测**：无监督异常检测，支持冷启动场景（**简化 MVP 实现**）
 - **自动数据收集**：生产环境中自动收集交易数据用于模型训练
 - **特征缓存**：预计算特征，基于 TTL 的缓存机制
 
 **实现状态**：详见 [`docs/ALGORITHM_IMPLEMENTATION_STATUS.md`](docs/ALGORITHM_IMPLEMENTATION_STATUS.md) 了解算法完成度分析。
 
-**注意**：当前 ML 实现是简化版本，适合 MVP。生产环境部署建议：
+**⚠️ 重要提示**：当前 ML 实现为**简化 MVP 版本**，适用于演示和概念验证。生产环境部署建议：
 1. 使用 Python（XGBoost/scikit-learn）训练模型
 2. 导出模型为 ONNX 或 JSON 格式
 3. 在 Node.js 中使用 ONNX Runtime 或自定义推理引擎
