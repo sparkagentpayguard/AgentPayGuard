@@ -68,7 +68,9 @@ export class FeatureCacheService {
     // 如果超过最大数量，移除最旧的
     if (this.commonRecipients.size > this.maxCommonRecipients) {
       const first = this.commonRecipients.values().next().value;
-      this.commonRecipients.delete(first);
+      if (first !== undefined) {
+        this.commonRecipients.delete(first);
+      }
     }
   }
 
