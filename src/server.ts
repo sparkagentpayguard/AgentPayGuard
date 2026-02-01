@@ -49,7 +49,7 @@ interface AIPayPipelineResult {
   message?: string;
 }
 
-async function runAIPayPipeline(request: string, executeOnchain: boolean): Promise<AIPayPipelineResult> {
+async function runAIPayPipeline(request: string, executeOnchain: boolean, paymentMode?: 'eoa' | 'aa'): Promise<AIPayPipelineResult> {
   if (!cachedAIParser.isEnabled()) {
     return { ok: false, error: 'ai_disabled', message: 'AI features disabled. Set ENABLE_AI_INTENT=1 and configure API key.' };
   }
@@ -126,7 +126,8 @@ async function runAIPayPipeline(request: string, executeOnchain: boolean): Promi
   }
 
   if (executeOnchain) {
-    const payResult = await runPay({ recipient: finalRecipient, amount: intent.amount.split(' ')[0], paymentMode: env.PAYMENT_MODE as 'eoa' | 'aa', executeOnchain: true });
+    const finalPaymentMode = paymentMode ?? env.PAYMENT_MODE;
+    const payResult = await runPay({ recipient: finalRecipient, amount: intent.amount.split(' ')[0], paymentMode: finalPaymentMode as 'eoa' | 'aa', executeOnchain: true });
     if (payResult.ok) {
       await addSpentToday(env.STATE_PATH, amountInTokenUnits);
       return { ok: true, intent: intent as unknown as Record<string, unknown>, risk: aiAssessment as unknown as Record<string, unknown>, policy: decision.baseDecision as unknown as Record<string, unknown>, txHash: payResult.txHash, userOpHash: payResult.userOpHash };
@@ -268,11 +269,12 @@ const server = http.createServer(async (req, res) => {
       const body = await parseBody(req);
       const request = typeof body.request === 'string' ? body.request : '';
       const executeOnchain = body.executeOnchain === true || body.executeOnchain === 'true' || body.executeOnchain === '1';
+      const paymentMode = body.paymentMode === 'aa' ? 'aa' as const : body.paymentMode === 'eoa' ? 'eoa' as const : undefined;
       if (!request.trim()) {
         send(res, 400, { ok: false, error: 'missing_request', message: 'Natural language request is required' });
         return;
       }
-      const result = await runAIPayPipeline(request, executeOnchain);
+      const result = await runAIPayPipeline(request, executeOnchain, paymentMode);
       send(res, result.ok ? 200 : (result.error ? 400 : 200), result);
     } catch (err) {
       send(res, 500, { ok: false, error: 'server_error', message: err instanceof Error ? err.message : 'AI payment failed' });
@@ -294,10 +296,11 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      // Payment confirmation flow
+      // Payment confirmation flow (backward compatible)
       if (confirmPayment && pending?.originalRequest) {
-        console.log('[api/ai-chat] Confirming payment:', pending.originalRequest);
-        const result = await runAIPayPipeline(pending.originalRequest, true);
+        const paymentMode = (body.paymentMode === 'eoa' || body.paymentMode === 'aa') ? body.paymentMode : undefined;
+        console.log('[api/ai-chat] Confirming payment:', pending.originalRequest, paymentMode ? `(mode: ${paymentMode})` : '');
+        const result = await runAIPayPipeline(pending.originalRequest, true, paymentMode);
         const text = result.ok && result.txHash
           ? `Payment executed successfully! Tx: ${result.txHash}`
           : `Payment failed: ${result.message || 'Unknown error'}`;
@@ -321,21 +324,69 @@ const server = http.createServer(async (req, res) => {
       switch (classification.action) {
         case 'payment': {
           const payRequest = classification.paymentRequest || message;
-          const result = await runAIPayPipeline(payRequest, false); // always dry-run first
-          const pendingPayment: PendingPayment = {
-            recipient: (result.intent as Record<string, string>)?.recipient ?? '',
-            amount: (result.intent as Record<string, string>)?.amount ?? '',
-            currency: (result.intent as Record<string, string>)?.currency ?? 'USDC',
-            purpose: (result.intent as Record<string, string>)?.purpose ?? '',
-            originalRequest: payRequest,
-          };
-          send(res, 200, {
-            text: classification.response || (result.ok ? 'Payment intent parsed. Please review and confirm.' : `Issue found: ${result.message || 'Policy check failed.'}`),
-            action: 'payment',
-            paymentResult: result,
-            pendingConfirmation: result.ok,
-            pendingPayment: result.ok ? pendingPayment : undefined,
-          });
+          const dryRun = body.dryRun === true;
+          const paymentMode = (body.paymentMode === 'eoa' || body.paymentMode === 'aa') ? body.paymentMode : undefined;
+          const autoExecute = body.autoExecute !== false; // default true
+          
+          // Dry-run mode: only parse and assess, don't execute
+          if (dryRun) {
+            const result = await runAIPayPipeline(payRequest, false);
+            send(res, 200, {
+              text: classification.response || (result.ok ? 'Payment intent parsed (dry-run mode). Risk assessed, policy checked, but not executed on-chain.' : `Issue found: ${result.message || 'Policy check failed.'}`),
+              action: 'payment',
+              paymentResult: result,
+              dryRun: true,
+            });
+            break;
+          }
+          
+          // Parse and assess first
+          const result = await runAIPayPipeline(payRequest, false);
+          
+          // Check if should auto-execute: low risk + policy passed
+          const shouldAutoExecute = autoExecute && result.ok && result.risk && 
+            (result.risk as { level?: string }).level === 'low';
+          
+          if (shouldAutoExecute) {
+            // Auto-execute: run with actual payment mode
+            const executeMode = paymentMode ?? env.PAYMENT_MODE;
+            console.log(`[api/ai-chat] Auto-executing payment (mode: ${executeMode})`);
+            const executeResult = await runAIPayPipeline(payRequest, true, executeMode);
+            
+            if (executeResult.ok && executeResult.txHash) {
+              const modeText = executeMode === 'aa' ? 'Account Abstraction' : 'EOA';
+              send(res, 200, {
+                text: `Payment executed automatically via ${modeText}! Transaction: ${executeResult.txHash}`,
+                action: 'payment',
+                paymentResult: executeResult,
+                autoExecuted: true,
+                paymentMode: executeMode,
+              });
+            } else {
+              send(res, 200, {
+                text: `Payment parsing passed but execution failed: ${executeResult.message || 'Unknown error'}`,
+                action: 'payment',
+                paymentResult: executeResult,
+                autoExecuted: false,
+              });
+            }
+          } else {
+            // Manual confirmation flow (backward compatible)
+            const pendingPayment: PendingPayment = {
+              recipient: (result.intent as Record<string, string>)?.recipient ?? '',
+              amount: (result.intent as Record<string, string>)?.amount ?? '',
+              currency: (result.intent as Record<string, string>)?.currency ?? 'USDC',
+              purpose: (result.intent as Record<string, string>)?.purpose ?? '',
+              originalRequest: payRequest,
+            };
+            send(res, 200, {
+              text: classification.response || (result.ok ? 'Payment intent parsed. Please review and confirm.' : `Issue found: ${result.message || 'Policy check failed.'}`),
+              action: 'payment',
+              paymentResult: result,
+              pendingConfirmation: result.ok && !autoExecute,
+              pendingPayment: result.ok && !autoExecute ? pendingPayment : undefined,
+            });
+          }
           break;
         }
         case 'query_balance': {

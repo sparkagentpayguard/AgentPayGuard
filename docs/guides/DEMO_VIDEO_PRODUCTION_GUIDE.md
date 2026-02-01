@@ -241,8 +241,6 @@
 ---
 
 ## 📚 参考资源
-
-- [完整演示脚本（英文）](./DEMO_VIDEO_SCRIPT_EN.md)
 - [README - 赛道对照](../README.md#赛道对照)
 - [项目总结](../../PROJECT_SUMMARY.md)
 
