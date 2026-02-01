@@ -68,18 +68,47 @@ Aligned with Kite's **SPACE** direction (stablecoin-native, programmable constra
 ### Technical Architecture
 
 ```
-User (Authorization/Policy Configuration)
-  └─ Agent (Kite Identity: Agent/Passport)
-       └─ AI Intent Parser (Natural Language Parsing + Risk Assessment)
-            └─ AA Smart Account (Kite AA SDK)
-                 └─ Policy Guard (Allowlist/Limits/Validity + AI Risk Assessment...)
-                      └─ Stablecoin Payment (On-chain Transfer)
-                           └─ Audit Trail (On-chain Verifiable + Optional Local Logs)
+┌─────────────────────────────────────────────────────────────┐
+│                    User / Frontend                          │
+│              (Natural Language Request)                     │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│              API Server (src/server.ts)                     │
+│         /api/ai-pay, /api/pay, /api/ai-chat                 │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│         AI Intent Parser (src/lib/ai-intent.ts)            │
+│    Natural Language → Recipient/Amount/Purpose              │
+│    + Risk Assessment (0-100 score)                          │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│         Policy Engine (src/lib/policy.ts)                   │
+│    Allowlist + Limits + AI Risk + ML + Freeze Check         │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│      Payment Execution (src/lib/run-pay.ts)                  │
+│         EOA Path (erc20.ts)  │  AA Path (kite-aa.ts)        │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Kite Chain (Stablecoin Transfer)               │
+│              On-chain Audit Trail                           │
+└─────────────────────────────────────────────────────────────┘
 
-Anomaly/High Risk → SimpleMultiSig (2/3 Multisig) Intervention: Freeze/Unfreeze/Policy Update
-  - Multisig address: 0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA
-  - Freeze contract: 0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719
-  - Freeze operation Tx: https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c
+Emergency Override:
+  SimpleMultiSig (2/3) → Freeze/Unfreeze
+  - Multisig: 0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA
+  - Freeze Contract: 0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719
+  - Freeze Tx: https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c
 ```
 
 ### Core Modules
@@ -289,16 +318,12 @@ ML_DATA_PATH=./data/training  # Data storage path
 ### Long-term (P1/P2)
 
 1. **Verifiable Inference**
-   - **Vision**: Cryptographic proof of model outputs and decision lineage (aligned with Kite whitepaper §7)
+   - **Vision**: Cryptographic proof of model outputs and decision lineage
    - **Why**: Enables trustless verification of AI decisions without revealing model internals
 
-2. **Portable Reputation Networks**
-   - **Vision**: On-chain reputation, cross-platform portability, automated trust decisions
-   - **Why**: Builds trust across different agent platforms and services
-
-3. **ZK-verified Agent Credentials**
-   - **Vision**: Prove agent attributes without revealing data
-   - **Why**: Privacy-preserving identity verification for compliance and trust
+2. **Local/Edge Model Deployment**
+   - **Vision**: Sub-second latency with privacy-preserving local LLMs
+   - **Why**: Reduces dependency on cloud APIs and enables real-time decisions
 
 ### Current Performance
 
@@ -321,19 +346,13 @@ So other Dapps can reuse our policy and risk layer without reimplementing it; th
 
 ## Use Cases
 
-The Kite whitepaper (§6) describes scenarios where agent autonomy meets programmable payments. AgentPayGuard implements the **payment + policy + freeze** layer these use cases rest on:
+AgentPayGuard implements the **payment + policy + freeze** layer for agent-native payments:
 
-- **Gaming**: True microtransactions with parental limits
-- **IoT**: M2M bandwidth, pay-per-packet
-- **Creator Economy**: Fan-to-creator tips, programmable splits
-- **API Economy**: Every call becomes a transaction, per-request billing
-- **E-commerce**: Programmable escrow, conditional release
-- **Personal Finance**: Autonomous budgets, bills, small investments under limits
-- **Knowledge Markets**: Decentralized expertise, micropayments per contribution
-- **Supply Chain**: Autonomous commercial networks, escrow on milestones
-- **DAOs**: AI-enhanced treasury, rebalancing within policy, human vote for large moves
+- **Gaming**: True microtransactions with programmable limits (e.g., parental controls)
+- **API Economy**: Per-request billing where every API call becomes a transaction
+- **Personal Finance**: Autonomous budget management and bill payments under configurable limits
 
-Any of the above—a game agent, an API billing service, a personal-finance bot—can call our APIs (`/api/pay`, `/api/ai-pay`) and get enforced rules and auditability on Kite.
+Any agent or service can call our APIs (`/api/pay`, `/api/ai-pay`) and get enforced rules and auditability on Kite.
 
 Details: [Kite Whitepaper](https://gokite.ai/kite-whitepaper); full text in `docs/resources/kite_whitepaper.md` (§6 Use Cases, §7 Future Work).
 
