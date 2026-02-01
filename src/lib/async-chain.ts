@@ -39,23 +39,38 @@ export async function queryFreezeStatusBatch(
       return { address, isFrozen, error: null };
     } catch (error) {
       console.error(`[AsyncChain] Failed to check freeze status for ${address}:`, error);
+      // 查询失败时，返回错误信息而不是默认 false（安全策略：无法确认时应该拒绝）
       return { address, isFrozen: false, error: error instanceof Error ? error : new Error(String(error)) };
     }
   });
 
   const results = await Promise.allSettled(promises);
   const freezeMap = new Map<string, boolean>();
+  const errors: Map<string, Error> = new Map();
 
   results.forEach((result, index) => {
     const address = addresses[index];
     if (result.status === 'fulfilled') {
-      freezeMap.set(address, result.value.isFrozen);
+      const value = result.value;
+      if (value.error) {
+        // 查询失败，记录错误（安全策略：无法确认冻结状态时应该拒绝）
+        errors.set(address, value.error);
+        console.error(`[AsyncChain] Freeze check failed for ${address}:`, value.error);
+      } else {
+        freezeMap.set(address, value.isFrozen);
+      }
     } else {
-      // 查询失败时，默认不冻结（保守策略）
-      freezeMap.set(address, false);
-      console.warn(`[AsyncChain] Failed to query freeze status for ${address}:`, result.reason);
+      // Promise 被拒绝，记录错误
+      errors.set(address, result.reason instanceof Error ? result.reason : new Error(String(result.reason)));
+      console.error(`[AsyncChain] Failed to query freeze status for ${address}:`, result.reason);
     }
   });
+
+  // 如果有任何查询失败，抛出异常（Strong Consistency：无法确认冻结状态时拒绝支付）
+  if (errors.size > 0) {
+    const errorMessages = Array.from(errors.entries()).map(([addr, err]) => `${addr}: ${err.message}`).join('; ');
+    throw new Error(`无法查询冻结状态（安全策略：无法确认时拒绝支付）: ${errorMessages}`);
+  }
 
   return freezeMap;
 }
