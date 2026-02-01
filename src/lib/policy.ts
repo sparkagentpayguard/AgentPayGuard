@@ -234,7 +234,7 @@ export async function evaluatePolicyWithAI(args: {
         }
       }
 
-      // Step 2.5: ML异常检测（如果启用）
+      // Step 2.5: ML异常检测和XGBoost风险评估（如果启用）
       const mlService = getMLService();
       if (mlService.isEnabled() && finalPaymentIntent) {
         try {
@@ -257,7 +257,7 @@ export async function evaluatePolicyWithAI(args: {
             historicalData.transactions.length > 0 ? historicalData : undefined
           );
 
-          // 异常检测
+          // 1. 异常检测（孤立森林）
           const anomalyResult = await mlService.detectAnomaly(features);
           
           if (anomalyResult.isAnomaly) {
@@ -284,10 +284,43 @@ export async function evaluatePolicyWithAI(args: {
               };
             }
           }
+
+          // 2. XGBoost 风险评估（如果模型已训练）
+          const xgboostStatus = mlService.getXGBoostModelStatus();
+          if (xgboostStatus.isTrained) {
+            const xgboostPrediction = await mlService.predictRiskWithXGBoost(features);
+            
+            // 融合 XGBoost 预测结果（加权平均）
+            const xgboostWeight = 0.4; // XGBoost 权重
+            const aiWeight = 0.6; // AI 评估权重
+            
+            const fusedScore = aiAssessment.score * aiWeight + xgboostPrediction.riskScore * xgboostWeight;
+            aiAssessment.score = Math.round(fusedScore);
+            
+            // 添加 XGBoost 理由
+            if (xgboostPrediction.riskScore > 70) {
+              aiAssessment.reasons.push(`XGBoost模型评估：高风险 (${xgboostPrediction.riskScore.toFixed(1)})`);
+            }
+            
+            // 如果 XGBoost 预测高风险，可能直接拒绝
+            if (xgboostPrediction.riskScore > (policy.maxRiskScore || 80)) {
+              return {
+                baseDecision: {
+                  ok: false,
+                  code: 'AI_RISK_TOO_HIGH',
+                  message: `XGBoost模型评估高风险：${xgboostPrediction.riskScore.toFixed(1)}分`
+                },
+                aiAssessment,
+                paymentIntent: finalPaymentIntent,
+                aiEnabled: true,
+                warnings
+              };
+            }
+          }
         } catch (error) {
-          console.error('[ML] Failed to perform anomaly detection:', error);
+          console.error('[ML] Failed to perform ML risk assessment:', error);
           // 不影响主流程，只记录警告
-          warnings.push('ML异常检测失败，跳过ML检查');
+          warnings.push('ML风险评估失败，跳过ML检查');
         }
       }
     } catch (error) {

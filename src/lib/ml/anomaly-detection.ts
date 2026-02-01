@@ -128,12 +128,20 @@ export class AnomalyDetector {
       'txCount1h', 'txAmount1h', 'avgAmount1h',
       'txCount24h', 'txAmount24h', 'avgAmount24h',
       'txCount7d', 'txAmount7d', 'avgAmount7d',
-      'isWeekend', 'hourOfDay', 'dayOfWeek',
-      'amountNumber', 'recipientChangeRate', 'purposeDiversity',
-      'amountTrend', 'addressTxCount', 'addressTotalAmount',
-      'addressAvgAmount', 'addressFirstSeenDays', 'addressRiskScore',
-      'addressAssociationCount', 'userTotalTxCount', 'userTotalAmount',
-      'userAvgAmount', 'userRejectCount', 'walletBalance', 'spentToday'
+      'txCount30d', 'txAmount30d', 'avgAmount30d',
+      'avgTxIntervalHours', 'minTxIntervalHours', 'maxTxIntervalHours',
+      'isWeekend', 'hourOfDay', 'dayOfWeek', 'isNightTime', 'isBusinessHours', 'hourOfDayNormalized',
+      'amountNumber', 'recipientChangeRate', 'purposeDiversity', 'amountTrend',
+      'recentAmountMean', 'recentAmountStd', 'recentAmountMax', 'recentAmountMin', 'amountRatioToAvg',
+      'recentRecipientCount', 'recipientRepeatRate',
+      'addressTxCount', 'addressTotalAmount', 'addressAvgAmount', 'addressFirstSeenDays',
+      'addressRiskScore', 'addressAssociationCount',
+      'userTotalTxCount', 'userTotalAmount', 'userAvgAmount', 'userRejectCount',
+      'amountCoefficientOfVariation', 'txFrequencyPerDay', 'balanceRatio',
+      'recipientOnchainTxCount', 'recipientOnchainVolume', 'recipientContractInteractionCount',
+      'sameRecipientIn24h', 'sameRecipientIn7d', 'amountDeviationFromMean', 'amountDeviationFromMedian',
+      'consecutiveSameRecipient', 'amountChangeRate', 'timeSinceLastTx',
+      'walletBalance', 'spentToday'
     ];
 
     const reasons: string[] = [];

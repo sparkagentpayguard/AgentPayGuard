@@ -5,6 +5,7 @@
 import { DataCollector, FeatureVector } from './data-collector.js';
 import { FeatureService, HistoricalData, RiskContext } from './features.js';
 import { AnomalyDetector, AnomalyDetectionResult } from './anomaly-detection.js';
+import { XGBoostModel, XGBoostPrediction } from './xgboost-model.js';
 import { PaymentIntent, RiskAssessment } from '../ai-intent.js';
 import { PolicyDecision } from '../policy.js';
 import { loadEnv } from '../config.js';
@@ -14,6 +15,7 @@ export class MLService {
   private dataCollector: DataCollector | null = null;
   private featureService: FeatureService;
   private anomalyDetector: AnomalyDetector;
+  private xgboostModel: XGBoostModel;
   private featureCache: FeatureCacheService;
   private enabled: boolean = false;
 
@@ -23,6 +25,11 @@ export class MLService {
     
     this.featureService = new FeatureService();
     this.anomalyDetector = new AnomalyDetector(this.featureService);
+    this.xgboostModel = new XGBoostModel(this.featureService, {
+      nEstimators: 100,
+      maxDepth: 6,
+      learningRate: 0.1
+    });
     this.featureCache = new FeatureCacheService({
       recipientCacheTTL: 3600,  // 1 小时
       userCacheTTL: 1800,        // 30 分钟
@@ -136,6 +143,56 @@ export class MLService {
    */
   getAnomalyDetectorStatus() {
     return this.anomalyDetector.getTrainingStatus();
+  }
+
+  /**
+   * 使用 XGBoost 模型预测风险
+   */
+  async predictRiskWithXGBoost(features: FeatureVector): Promise<XGBoostPrediction> {
+    return this.xgboostModel.predict(features);
+  }
+
+  /**
+   * 训练 XGBoost 模型
+   */
+  async trainXGBoostModel(): Promise<boolean> {
+    if (!this.dataCollector) {
+      console.warn('[MLService] Data collector not available');
+      return false;
+    }
+
+    try {
+      // 获取训练数据
+      const labeledData = await this.dataCollector.getLabeledData();
+      const normalTransactions = labeledData.normal.slice(0, 1000);
+      const riskTransactions = labeledData.risk.slice(0, 100);
+      
+      if (normalTransactions.length < 10 || riskTransactions.length < 5) {
+        console.log(`[MLService] Not enough data for XGBoost training (need at least 10 normal and 5 risk samples)`);
+        return false;
+      }
+
+      // 准备训练数据
+      const features: FeatureVector[] = [...normalTransactions, ...riskTransactions];
+      const labels: number[] = [
+        ...normalTransactions.map(() => 0), // 0 = 正常
+        ...riskTransactions.map(() => 1)     // 1 = 风险
+      ];
+
+      await this.xgboostModel.train(features, labels);
+      console.log(`[MLService] XGBoost model trained with ${features.length} samples`);
+      return true;
+    } catch (error) {
+      console.error('[MLService] Failed to train XGBoost model:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 获取 XGBoost 模型训练状态
+   */
+  getXGBoostModelStatus() {
+    return this.xgboostModel.getTrainingStatus();
   }
 
   /**

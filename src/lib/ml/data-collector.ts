@@ -50,6 +50,53 @@ export interface FeatureVector {
   onchainTxCount?: number;
   onchainTotalVolume?: number;
   
+  // 30天窗口特征（扩展）
+  txCount30d?: number;
+  txAmount30d?: number;
+  avgAmount30d?: number;
+  
+  // 交易间隔特征
+  avgTxIntervalHours?: number; // 平均交易间隔（小时）
+  minTxIntervalHours?: number; // 最小交易间隔
+  maxTxIntervalHours?: number; // 最大交易间隔
+  
+  // 金额序列特征（最近N笔）
+  recentAmountMean?: number; // 最近5笔平均金额
+  recentAmountStd?: number; // 最近5笔金额标准差
+  recentAmountMax?: number; // 最近5笔最大金额
+  recentAmountMin?: number; // 最近5笔最小金额
+  amountRatioToAvg?: number; // 当前金额/历史平均金额
+  
+  // 地址序列特征
+  recentRecipientCount?: number; // 最近10笔唯一收款地址数
+  recipientRepeatRate?: number; // 收款地址重复率
+  
+  // 时间分布特征（扩展）
+  isNightTime?: boolean; // 是否夜间（22:00-6:00）
+  isBusinessHours?: boolean; // 是否工作时间（9:00-18:00）
+  hourOfDayNormalized?: number; // 小时归一化（0-1）
+  
+  // 统计特征
+  amountCoefficientOfVariation?: number; // 金额变异系数
+  txFrequencyPerDay?: number; // 日均交易频率
+  balanceRatio?: number; // 当前金额/钱包余额
+  
+  // 链上特征（扩展）
+  recipientOnchainTxCount?: number; // 收款地址链上交易数
+  recipientOnchainVolume?: number; // 收款地址链上总交易量
+  recipientContractInteractionCount?: number; // 收款地址合约交互次数
+  
+  // 交互特征（新增）
+  sameRecipientIn24h?: number; // 24小时内相同收款地址次数
+  sameRecipientIn7d?: number; // 7天内相同收款地址次数
+  amountDeviationFromMean?: number; // 金额偏离均值的程度
+  amountDeviationFromMedian?: number; // 金额偏离中位数的程度
+  
+  // 序列模式特征（新增）
+  consecutiveSameRecipient?: number; // 连续相同收款地址次数
+  amountChangeRate?: number; // 金额变化率（相对于上一笔）
+  timeSinceLastTx?: number; // 距离上一笔交易的时间（小时）
+  
   // 基础特征（兼容现有）
   walletBalance?: number;
   spentToday?: number;
