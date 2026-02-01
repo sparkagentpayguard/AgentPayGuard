@@ -74,6 +74,26 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://localhost`);
   const path = url.pathname;
 
+  if (path === '/api/agent-wallet' && req.method === 'GET') {
+    try {
+      if (!env.PRIVATE_KEY) {
+        send(res, 200, {
+          ok: false,
+          error: 'no_private_key',
+          message: 'PRIVATE_KEY not set. If you use .env.enc (Chainlink env-enc), run npx env-enc set-pw then npx env-enc set to store PRIVATE_KEY; then start the server with npx tsx src/server.ts (config loads .env.enc at startup).'
+        });
+        return;
+      }
+      const wallet = new ethers.Wallet(env.PRIVATE_KEY);
+      const address = await wallet.getAddress();
+      console.log('[api/agent-wallet] Agent wallet (PRIVATE_KEY):', address);
+      send(res, 200, { ok: true, address });
+    } catch (err) {
+      send(res, 500, { error: err instanceof Error ? err.message : 'Failed to get agent wallet' });
+    }
+    return;
+  }
+
   if (path === '/api/policy' && req.method === 'GET') {
     try {
       const { loadEnv } = await import('./lib/config.js');
@@ -158,11 +178,18 @@ const server = http.createServer(async (req, res) => {
       
       const provider = new ethers.JsonRpcProvider(env.RPC_URL, env.CHAIN_ID);
       const tokenDecimalsForContext = env.TOKEN_DECIMALS ?? await getTokenDecimals(provider, env.SETTLEMENT_TOKEN_ADDRESS);
+      // Balance passed to AI = backend Agent wallet (PRIVATE_KEY) settlement token only — not the frontend connected wallet
       let walletBalanceHuman = 0;
+      let agentWalletAddress: string | undefined;
       if (env.PRIVATE_KEY) {
         const wallet = new ethers.Wallet(env.PRIVATE_KEY);
-        const balanceWei = await getTokenBalance(provider, env.SETTLEMENT_TOKEN_ADDRESS, await wallet.getAddress());
+        agentWalletAddress = await wallet.getAddress();
+        const balanceWei = await getTokenBalance(provider, env.SETTLEMENT_TOKEN_ADDRESS, agentWalletAddress);
         walletBalanceHuman = Number(ethers.formatUnits(balanceWei, tokenDecimalsForContext));
+        console.log('[api/ai-pay] Agent wallet (PRIVATE_KEY):', agentWalletAddress, '| Settlement token balance:', walletBalanceHuman);
+        if (walletBalanceHuman === 0) {
+          console.warn('[api/ai-pay] Settlement token balance is 0. Token:', env.SETTLEMENT_TOKEN_ADDRESS);
+        }
       }
       const spentTodayForContext = await readSpentToday(env.STATE_PATH);
       const spentTodayHuman = Number(ethers.formatUnits(spentTodayForContext, tokenDecimalsForContext));
@@ -185,10 +212,9 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       
-      // OPTIMIZATION 2: Parallelize independent operations (token decimals + spent today)
-      // These don't depend on each other, so run them concurrently
-      const tokenDecimals = env.TOKEN_DECIMALS ?? await getTokenDecimals(provider, env.SETTLEMENT_TOKEN_ADDRESS);
-      const spentToday = await readSpentToday(env.STATE_PATH);
+      // Reuse token decimals and spent-today from context (no duplicate RPC/file read)
+      const tokenDecimals = tokenDecimalsForContext;
+      const spentToday = spentTodayForContext;
       
       const amountInTokenUnits = prepareAmountForEvaluation(intent.amountNumber, intent.currency, tokenDecimals);
       
@@ -206,31 +232,44 @@ const server = http.createServer(async (req, res) => {
       
       // OPTIMIZATION 3: Use pre-computed AI assessment instead of calling AI again
       // Check AI risk thresholds first (fast, no network call)
+      const riskRejectionMessage = (msg: string) => {
+        const reasons = aiAssessment.reasons.join('; ');
+        const hint = /balance|余额|0\s*[,;]|wallet\s*balance/i.test(reasons)
+          ? 'AI 检测的余额来自后端 .env 中 PRIVATE_KEY 对应钱包的结算代币 (SETTLEMENT_TOKEN_ADDRESS)，不是前端连接的钱包。请为该 Agent 钱包充值结算代币或核对 .env 配置。'
+          : undefined;
+        return { message: msg, hint };
+      };
       if (enhancedPolicy.maxRiskScore !== undefined && aiAssessment.score > enhancedPolicy.maxRiskScore) {
+        const { message, hint } = riskRejectionMessage(
+          `AI风险评估分数过高：${aiAssessment.score} > ${enhancedPolicy.maxRiskScore}。原因：${aiAssessment.reasons.join('; ')}`
+        );
+        if (agentWalletAddress) {
+          console.warn('[api/ai-pay] Rejected (risk score). Agent wallet:', agentWalletAddress);
+        }
         send(res, 200, {
           ok: false,
           intent,
           risk: aiAssessment,
-          policy: {
-            ok: false,
-            code: 'AI_RISK_TOO_HIGH',
-            message: `AI风险评估分数过高：${aiAssessment.score} > ${enhancedPolicy.maxRiskScore}。原因：${aiAssessment.reasons.join('; ')}`
-          }
+          policy: { ok: false, code: 'AI_RISK_TOO_HIGH', message, hint },
+          ...(agentWalletAddress && { agentWallet: agentWalletAddress })
         });
         return;
       }
       
       const riskLevel = aiAssessment.level as 'high' | 'medium' | 'low';
       if (enhancedPolicy.autoRejectRiskLevels?.includes(riskLevel as 'high' | 'medium')) {
+        const { message, hint } = riskRejectionMessage(
+          `AI风险评估等级为 ${aiAssessment.level}，根据策略自动拒绝。原因：${aiAssessment.reasons.join('; ')}`
+        );
+        if (agentWalletAddress) {
+          console.warn('[api/ai-pay] Rejected (risk level). Agent wallet:', agentWalletAddress);
+        }
         send(res, 200, {
           ok: false,
           intent,
           risk: aiAssessment,
-          policy: {
-            ok: false,
-            code: 'AI_RISK_TOO_HIGH',
-            message: `AI风险评估等级为 ${aiAssessment.level}，根据策略自动拒绝。原因：${aiAssessment.reasons.join('; ')}`
-          }
+          policy: { ok: false, code: 'AI_RISK_TOO_HIGH', message, hint },
+          ...(agentWalletAddress && { agentWallet: agentWalletAddress })
         });
         return;
       }
@@ -319,6 +358,7 @@ const server = http.createServer(async (req, res) => {
 <p>服务已启动，端口: ${PORT}</p>
 <ul>
   <li><a href="/api/health">GET /api/health</a> - 健康检查</li>
+  <li><a href="/api/agent-wallet">GET /api/agent-wallet</a> - 查看 .env 中 PRIVATE_KEY 对应钱包地址</li>
   <li><a href="/api/policy">GET /api/policy</a> - 策略（白名单/限额）</li>
   <li><a href="/api/freeze?address=0x...">GET /api/freeze?address=0x...</a> - 查询地址是否被链上冻结（前端可测）</li>
   <li>POST /api/pay - 发起支付（需用前端或 curl 调用）</li>
@@ -333,8 +373,9 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`[AgentPayGuard API] http://localhost:${PORT}`);
-  console.log('  GET  /api/health - 健康检查');
-  console.log('  GET  /api/policy  - 策略（白名单/限额）');
+  console.log('  GET  /api/health      - 健康检查');
+  console.log('  GET  /api/agent-wallet - 查看 PRIVATE_KEY 对应钱包地址');
+  console.log('  GET  /api/policy     - 策略（白名单/限额）');
   console.log('  GET  /api/freeze  - 查询地址冻结状态（?address=0x...）');
   console.log('  POST /api/pay     - 发起支付（body: recipient?, amount?, paymentMode?, executeOnchain?）');
   console.log('  POST /api/ai-pay  - AI 自然语言支付（body: request, executeOnchain?）');

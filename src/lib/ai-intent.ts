@@ -246,8 +246,81 @@ Example inputs:
   }
 
   /**
-   * Combined method: Parse intent AND assess risk in a single AI call
-   * This is 2-3x faster than calling parsePaymentIntent() + assessRisk() separately
+   * Single LLM call: parse intent AND assess risk in one request (faster cold path).
+   * Returns combined { intent, risk }; on failure returns null so caller can fall back to two-call path.
+   */
+  private async parseAndAssessRiskInOneCall(userMessage: string, context?: {
+    historicalPayments?: Array<{recipient: string, amount: number, timestamp: Date}>;
+    walletBalance?: number;
+    spentToday?: number;
+  }): Promise<{ intent: PaymentIntent; risk: RiskAssessment } | null> {
+    if (!this.isEnabled() || !this.openai) return null;
+    const contextStr = context ? JSON.stringify(context, null, 2) : 'No additional context';
+    const systemPrompt = `You are a payment intent parser and risk assessor for a blockchain payment system.
+From the user's natural language payment request, output a single JSON object with two keys: "intent" and "risk".
+
+"intent" must have:
+  "recipient": "ethereum address (0x...) or 'unknown'",
+  "amount": "human-readable amount with currency (e.g., '100 USDC')",
+  "amountNumber": number (e.g., 100),
+  "currency": "currency symbol (USDC, ETH, etc.)",
+  "purpose": "brief description of payment purpose",
+  "confidence": 0-1,
+  "riskLevel": "low" | "medium" | "high",
+  "reasoning": "brief reasoning"
+
+"risk" must have:
+  "score": 0-100 (0=no risk, 100=high risk),
+  "level": "low" | "medium" | "high",
+  "reasons": ["reason1", "reason2"],
+  "recommendations": ["recommendation1", "recommendation2"]
+
+Rules: Default currency USDC. Consider wallet balance and spent today (if in context). Be conservative on risk.`;
+
+    const userPrompt = `User payment request:\n${userMessage}\n\nContext:\n${contextStr}\n\nOutput one JSON: { "intent": {...}, "risk": {...} }`;
+
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: this.model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.1,
+        response_format: { type: 'json_object' }
+      });
+      const content = completion.choices[0]?.message?.content;
+      if (!content) return null;
+      const parsed = JSON.parse(content);
+      const rawIntent = parsed.intent;
+      const rawRisk = parsed.risk;
+      if (!rawIntent || !rawRisk) return null;
+      const intent: PaymentIntent = {
+        recipient: rawIntent.recipient ?? 'unknown',
+        amount: rawIntent.amount ?? `${rawIntent.amountNumber ?? 0} USDC`,
+        amountNumber: Number(rawIntent.amountNumber) || 0,
+        currency: rawIntent.currency ?? 'USDC',
+        purpose: rawIntent.purpose ?? '',
+        confidence: Number(rawIntent.confidence) ?? 0.5,
+        riskLevel: (String(rawIntent.riskLevel).toLowerCase() as 'low' | 'medium' | 'high') || 'medium',
+        reasoning: rawIntent.reasoning ?? '',
+        parsedSuccessfully: true
+      };
+      const risk: RiskAssessment = {
+        score: Math.min(100, Math.max(0, Number(rawRisk.score) ?? 50)),
+        level: (String(rawRisk.level).toLowerCase() as 'low' | 'medium' | 'high') || 'medium',
+        reasons: Array.isArray(rawRisk.reasons) ? rawRisk.reasons : [],
+        recommendations: Array.isArray(rawRisk.recommendations) ? rawRisk.recommendations : []
+      };
+      return { intent, risk };
+    } catch (e) {
+      console.error('[AI] parseAndAssessRiskInOneCall failed:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Parse intent and assess risk. Uses a single LLM call when possible; falls back to two calls or fallback parser.
    */
   async parseAndAssessRisk(userMessage: string, context?: {
     historicalPayments?: Array<{recipient: string, amount: number, timestamp: Date}>;
@@ -262,43 +335,33 @@ Example inputs:
     }
 
     let intent: PaymentIntent;
+    let risk: RiskAssessment;
+
     if (this.isEnabled() && this.openai) {
-      intent = await this.parsePaymentIntent(userMessage);
+      const oneCall = await this.parseAndAssessRiskInOneCall(userMessage, context);
+      if (oneCall) {
+        intent = oneCall.intent;
+        risk = oneCall.risk;
+      } else {
+        intent = await this.parsePaymentIntent(userMessage);
+        const intentCacheKey = hashString(`${intent.recipient}|${intent.amountNumber}|${intent.purpose}`);
+        const cachedByIntent = this.intentCache.get(intentCacheKey);
+        if (cachedByIntent) {
+          this.cache.set(cacheKey, { intent, risk: cachedByIntent.risk });
+          return { intent, risk: cachedByIntent.risk };
+        }
+        risk = await this.assessRisk(intent, context);
+      }
     } else {
       intent = this.fallbackParse(userMessage);
+      risk = this.fallbackRiskAssessment(intent);
     }
 
-    const intentCacheKey = hashString(
-      `${intent.recipient}|${intent.amountNumber}|${intent.purpose}`
-    );
-    const cachedByIntent = this.intentCache.get(intentCacheKey);
-    if (cachedByIntent) {
-      console.log('[AI] Cache hit for intent (recipient, amount, purpose)');
-      this.cache.set(cacheKey, { intent, risk: cachedByIntent.risk });
-      return { intent, risk: cachedByIntent.risk };
-    }
-
-    if (!this.isEnabled() || !this.openai) {
-      const risk = this.fallbackRiskAssessment(intent);
-      this.cache.set(cacheKey, { intent, risk });
-      this.intentCache.set(intentCacheKey, { intent, risk });
-      return { intent, risk };
-    }
-
-    try {
-      const risk = await this.assessRisk(intent, context);
-      const result = { intent, risk };
-      this.cache.set(cacheKey, result);
-      this.intentCache.set(intentCacheKey, result);
-      return result;
-    } catch (error) {
-      console.error('[AI] Error in parseAndAssessRisk:', error);
-      const risk = this.fallbackRiskAssessment(intent);
-      const result = { intent, risk };
-      this.cache.set(cacheKey, result);
-      this.intentCache.set(intentCacheKey, result);
-      return result;
-    }
+    const intentCacheKey = hashString(`${intent.recipient}|${intent.amountNumber}|${intent.purpose}`);
+    const result = { intent, risk };
+    this.cache.set(cacheKey, result);
+    this.intentCache.set(intentCacheKey, result);
+    return result;
   }
 
   /**
