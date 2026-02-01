@@ -98,15 +98,15 @@ export class FeatureCacheService {
       try {
         const features = await computeFeatures(recipient);
         this.setRecipientFeatures(recipient, features);
-        return { recipient, success: true };
+        return { recipient, success: true as const };
       } catch (error) {
         console.warn(`[FeatureCache] Failed to precompute features for ${recipient}:`, error);
-        return { recipient, success: false };
+        return { recipient, success: false as const };
       }
     });
 
     const results = await Promise.allSettled(promises);
-    const successCount = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+    const successCount = results.filter(r => r.status === 'fulfilled' && r.value && r.value.success).length;
     
     console.log(`[FeatureCache] Precomputed features for ${successCount}/${recipients.length} recipients`);
   }
