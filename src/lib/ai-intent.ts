@@ -69,13 +69,13 @@ export class AIIntentParser {
     // 如果用户指定了模型，使用用户指定的
     if (this.env.AI_MODEL) return this.env.AI_MODEL;
     
-    // 否则根据提供商设置默认模型
+    // 否则根据提供商设置默认模型（优先选择更快的模型）
     switch (this.provider) {
-      case 'openai': return 'gpt-4o-mini';
-      case 'deepseek': return 'deepseek-chat';
-      case 'gemini': return 'gemini-1.5-pro';
-      case 'claude': return 'claude-3-haiku';
-      case 'ollama': return 'llama3.2';
+      case 'openai': return 'gpt-4o-mini'; // 最快且便宜
+      case 'deepseek': return 'deepseek-chat'; // 免费且快速
+      case 'gemini': return 'gemini-1.5-flash'; // Flash 版本更快（如果支持）
+      case 'claude': return 'claude-3-haiku-20240307'; // Haiku 最快
+      case 'ollama': return 'llama3.2'; // 或 qwen2.5:7b（更小更快）
       case 'lmstudio': return 'local-model';
       case 'local': return 'local-model';
       default: return 'gpt-4o-mini';
@@ -205,17 +205,30 @@ Example inputs:
 - "Send 0.5 ETH to my supplier"
 - "Transfer $50 to vendor for office supplies"`;
 
+      // 优化参数：降低 temperature，限制 max_tokens，设置超时
+      const temperature = this.env.AI_TEMPERATURE ?? 0.1;
+      const maxTokens = this.env.AI_MAX_TOKENS;
+      const timeout = this.env.AI_TIMEOUT_MS ?? 30000;
+
       const completion = await withRetry(
         async () => {
-          return await this.openai!.chat.completions.create({
+          const completionPromise = this.openai!.chat.completions.create({
             model: this.model,
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: sanitizedMessage }
             ],
-            temperature: 0.1,
+            temperature,
+            max_tokens: maxTokens,
             response_format: { type: "json_object" }
           });
+
+          // 添加超时控制
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('AI API timeout')), timeout);
+          });
+
+          return await Promise.race([completionPromise, timeoutPromise]);
         },
         {
           ...AI_API_RETRY_OPTIONS,
@@ -360,17 +373,30 @@ Rules: Default currency USDC. Consider wallet balance and spent today (if in con
     const userPrompt = `User payment request:\n${sanitizedMessage}\n\nContext:\n${contextStr}\n\nOutput one JSON: { "intent": {...}, "risk": {...} }`;
 
     try {
+      // 优化参数
+      const temperature = this.env.AI_TEMPERATURE ?? 0.1;
+      const maxTokens = this.env.AI_MAX_TOKENS;
+      const timeout = this.env.AI_TIMEOUT_MS ?? 30000;
+
       const completion = await withRetry(
         async () => {
-          return await this.openai!.chat.completions.create({
+          const completionPromise = this.openai!.chat.completions.create({
             model: this.model,
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt }
             ],
-            temperature: 0.1,
+            temperature,
+            max_tokens: maxTokens,
             response_format: { type: 'json_object' }
           });
+
+          // 添加超时控制
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('AI API timeout')), timeout);
+          });
+
+          return await Promise.race([completionPromise, timeoutPromise]);
         },
         {
           ...AI_API_RETRY_OPTIONS,
@@ -497,17 +523,30 @@ ${contextStr}
 
 Please provide risk assessment.`;
 
+      // 优化参数
+      const temperature = this.env.AI_TEMPERATURE ?? 0.2;
+      const maxTokens = this.env.AI_MAX_TOKENS;
+      const timeout = this.env.AI_TIMEOUT_MS ?? 30000;
+
       const completion = await withRetry(
         async () => {
-          return await this.openai!.chat.completions.create({
+          const completionPromise = this.openai!.chat.completions.create({
             model: this.model,
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt }
             ],
-            temperature: 0.2,
+            temperature,
+            max_tokens: maxTokens,
             response_format: { type: "json_object" }
           });
+
+          // 添加超时控制
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('AI API timeout')), timeout);
+          });
+
+          return await Promise.race([completionPromise, timeoutPromise]);
         },
         {
           ...AI_API_RETRY_OPTIONS,

@@ -63,6 +63,12 @@ export const EnvSchema = z.object({
   AI_MODEL: z.string().default('gpt-4o-mini'),
   ENABLE_AI_INTENT: boolFromEnv(false),
 
+  // AI 性能优化配置
+  AI_MAX_TOKENS: z.coerce.number().int().positive().optional(), // 限制输出长度，加快响应（默认：不限制）
+  AI_TEMPERATURE: z.coerce.number().min(0).max(2).optional(), // 温度参数（默认：0.1，更快更确定）
+  AI_TIMEOUT_MS: z.coerce.number().int().positive().optional(), // AI API 超时时间（毫秒，默认：30000）
+  AI_ENABLE_STREAMING: boolFromEnv(false), // 启用流式响应（默认：false，兼容性优先）
+
   // AI 风控阈值（可选，不设则用默认值）
   AI_MAX_RISK_SCORE: z.coerce.number().int().min(0).max(100).optional(),
   AI_AUTO_REJECT_LEVELS: z.string().optional(), // 逗号分隔，如 "high" 或 "high,medium"

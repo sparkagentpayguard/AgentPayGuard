@@ -2,6 +2,8 @@ import OpenAI from 'openai';
 import { validateAndSanitizeInput } from './prompt-injection.js';
 import { withRetry, AI_API_RETRY_OPTIONS } from './retry.js';
 import { buildSystemPrompt } from './system-prompt-builder.js';
+import { loadEnv } from './config.js';
+import { SimpleCache, hashString } from './cache.js';
 
 export type ChatAction = 'payment' | 'query_balance' | 'query_policy' | 'query_freeze' | 'conversation';
 
@@ -41,10 +43,15 @@ function getSystemPrompt(): string {
 export class AIChatOrchestrator {
   private openai: OpenAI;
   private model: string;
+  private env: ReturnType<typeof loadEnv>;
+  private responseCache: SimpleCache<ChatClassification>; // 响应缓存（避免重复请求）
 
   constructor(openaiClient: OpenAI, model: string) {
     this.openai = openaiClient;
     this.model = model;
+    this.env = loadEnv();
+    // 缓存 5 分钟（相同输入快速返回）
+    this.responseCache = new SimpleCache(300);
   }
 
   async classify(message: string, history: ChatHistoryMessage[]): Promise<ChatClassification> {
@@ -59,6 +66,16 @@ export class AIChatOrchestrator {
       console.error('[AIChatOrchestrator] Input validation failed:', error);
       // 如果输入验证失败，使用回退分类器
       return this.fallbackClassify(message);
+    }
+
+    // 检查缓存（仅对无历史消息的简单请求缓存）
+    if (history.length === 0) {
+      const cacheKey = hashString(`chat:${sanitizedMessage}`);
+      const cached = this.responseCache.get(cacheKey);
+      if (cached) {
+        console.log('[AIChatOrchestrator] Cache hit');
+        return cached;
+      }
     }
 
     try {
@@ -79,14 +96,28 @@ export class AIChatOrchestrator {
         { role: 'user', content: sanitizedMessage },
       ];
 
+      // 优化参数：降低 temperature，限制 max_tokens，设置超时
+      const temperature = this.env.AI_TEMPERATURE ?? 0.1; // 默认 0.1（更快更确定）
+      const maxTokens = this.env.AI_MAX_TOKENS; // 可选限制输出长度
+      const timeout = this.env.AI_TIMEOUT_MS ?? 30000; // 默认 30 秒超时
+
       const completion = await withRetry(
         async () => {
-          return await this.openai.chat.completions.create({
+          // 创建带超时的 Promise
+          const completionPromise = this.openai.chat.completions.create({
             model: this.model,
             messages,
-            temperature: 0.3,
+            temperature,
+            max_tokens: maxTokens,
             response_format: { type: 'json_object' },
           });
+
+          // 添加超时控制
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('AI API timeout')), timeout);
+          });
+
+          return await Promise.race([completionPromise, timeoutPromise]);
         },
         {
           ...AI_API_RETRY_OPTIONS,
@@ -100,12 +131,20 @@ export class AIChatOrchestrator {
       if (!content) throw new Error('Empty LLM response');
 
       const parsed = JSON.parse(content);
-      return {
+      const result: ChatClassification = {
         action: this.normalizeAction(parsed.action),
         response: typeof parsed.response === 'string' ? parsed.response : '',
         paymentRequest: parsed.paymentRequest,
         queryAddress: parsed.queryAddress,
       };
+
+      // 缓存结果（仅对无历史消息的请求）
+      if (history.length === 0) {
+        const cacheKey = hashString(`chat:${sanitizedMessage}`);
+        this.responseCache.set(cacheKey, result);
+      }
+
+      return result;
     } catch (err) {
       console.error('[AIChatOrchestrator] classify failed after retries, using fallback:', err);
       return this.fallbackClassify(message);
