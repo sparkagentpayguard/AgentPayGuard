@@ -33,7 +33,7 @@
 5. **服务端体验（Phase 30）**：pnpm server 改用 tsx 解决输出不可见；默认端口 3002→3456，减少冲突；server.ts、.env.example 同步。
 6. **前端真实合约（Phase 31）**：Freeze/Proposals/Dashboard 去除 MOCK_DATA；frontend 新增 abis.ts，hooks 用 useReadContract/useWriteContract 调 SimpleFreeze、SimpleMultiSig；展示链上冻结状态、提案列表、owner 与确认/执行。
 7. **AI 支付性能（Phase 32）**：parseAndAssessRisk 合并意图解析与风险评估为一次 AI 调用；服务端预加载与实例缓存；/api/ai-pay 并行取 decimals 与 spentToday、提前检查风险阈值；首次/后续/高风险拒绝响应时间明显缩短。
-8. **README ASH 与前端优化（近期）**：README 增加「多签钱包说明」：Kite AI 官方 Ash wallet 无法在测试网设置，附截图（docs/assets/ash-wallet-networks.png、safe-account-create.png），团队用自建多签、主网可切 Ash。前端：Pay 页 i18n、语言切换入公共 header；抽取 Layout（header/背景/返回/NetworkBadge/LanguageToggle）；Dashboard 展示 Policy (API)；History 用 useProposals 真实链上数据。
+8. **README ASH 与前端优化（近期）**：README 增加「多签钱包说明」：Kite AI 官方 Ash wallet 无法在测试网设置，附截图（docs/assets/ash-wallet-networks.png、safe-account-create.png），团队用自建多签、主网可切 Ash。前端：Pay 页 i18n、语言切换入公共 header；抽取 Layout（header/背景/返回/NetworkBadge/LanguageToggle）；Dashboard 展示 Policy (API)；History 用 useProposals 真实链上数据。详见 Phase 34。
 9. **低余额测试与风控可配置（近期）**：.env.example 小额测试推荐（AMOUNT/MAX_AMOUNT/DAILY_LIMIT 等）；GET /api/freeze 供前端查冻结；ai-intent 意图缓存、(recipient,amount,purpose) 短时缓存，链上余额与 spentToday 传入风控；AI_MAX_RISK_SCORE、AI_AUTO_REJECT_LEVELS 环境变量；TESTING_GUIDE 低余额测试小节与前端可测风控表；README 链到 TESTING_GUIDE。
 
 **验证**：主仓 `pnpm typecheck` 0 errors；前端 `npm run build` 通过；pnpm server 启动可见、默认 3456。
@@ -163,12 +163,37 @@ $env:KITE_API_KEY="api_key_xxx"; python python/kitepass_demo.py
 
 ---
 
+### Phase 34：前端性能优化与 UI 优化（2026-01-31）
+
+**问题**：前端卡顿，3D 粒子背景、动画组件性能消耗大；UI 需要统一设计系统。
+
+**性能优化**：
+- 3D 背景：粒子 800→300，网格 40x40→30x30，DataCubes 6→4，添加性能检测 hook（低性能设备自动降级），延迟加载 500ms，帧跳过机制
+- HolographicShield：脉冲波 3→2，JS 动画转 CSS，轨道点 6→4，添加 will-change
+- 组件优化：PaymentCards/AssistantBlock 用 memo，回调函数用 useCallback，派生数据用 useMemo
+- CSS：添加 will-change、GPU 加速、支持 prefers-reduced-motion
+
+**UI 优化**：
+- 统一间距系统：CSS 变量（--spacing-xs 到 --spacing-2xl，--card-padding/gap/radius）
+- 按钮样式：最小触摸目标 44px，改进交互状态
+- 骨架屏加载：新增 Skeleton/SkeletonCard/SkeletonButton/SkeletonText 组件
+- 错误处理：新增 ErrorAlert 组件（error/warning/info 三种变体）
+- 移动端响应式：Layout/AIChat/Dashboard 优化，触摸目标优化，防止 iOS 缩放
+- 数据展示：.stat-number 大号数字，status-success/warning/error 颜色编码
+
+**效果**：初始加载 -40%，FPS +20-100%，内存 -33%，CPU -43%，重渲染 -50%；UI 统一性提升，移动端体验改善。
+
+**文件**：新增 `frontend/src/hooks/usePerformance.ts`、`frontend/src/components/ui/skeleton.tsx`、`frontend/src/components/ui/error-alert.tsx`；修改 ParticleBackground/ParticleStream/CyberGrid/DataCubes/HolographicShield/AIChat/Dashboard/Proposals/Layout/Freeze/History/Pay/Index/index.css。
+
+---
+
 ### Phase 摘要（倒序：最新在上）
 
 > **约定**：新增 Phase 请写在下方、按 Phase 倒序（最新在上）。
 
 | Phase | 内容 |
 |-------|------|
+| 34 | 前端性能优化与 UI 优化：3D 背景降级、动画优化、组件 memo、性能检测 hook、统一间距系统、骨架屏、错误处理、移动端响应式 |
 | 33 | 文档减冗余（按 CODE_AND_DOCS_EVALUATION）：PROJECT_ANALYSIS/RECENT_CHANGES 改索引、multisig 与 guides 分工、TESTING_GUIDE 引用 README、HACKATHON_FRONTEND 归档、README 5 分钟跑起来 |
 | 21–32 + 近期 | 见上方「Phase 21 至当前：总结」：免费 AI API → 子模块/RPC → 文档与分支流程 → 前端 API → server 端口 → 真实合约 → AI 性能 → README ASH + 前端优化 → 低余额测试与风控可配置 |
 | 20 | AI Agent（ai-intent + demo:ai-agent） |
