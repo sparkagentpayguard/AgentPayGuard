@@ -62,45 +62,66 @@ AgentPayGuard 是在 Kite 上的一次具体实现。我们围绕三个问题：
 ### 系统架构图
 
 ```
-User(授权/配置策略)
-  └─ Agent（Kite 身份：Agent/Passport）
-       └─ AI Intent Parser（自然语言解析 + 风险评估）
-            └─ AA 智能账户（Kite AA SDK）
-                 └─ Policy Guard（白名单/限额/有效期 + AI风险评估…）
-                      └─ Stablecoin Payment（链上转账）
-                           └─ Audit Trail（链上可查 + 可选本地日志）
+用户请求（自然语言）
+         │
+         ▼
+    AI 意图解析器
+    （解析 + 风险评估）
+         │
+         ▼
+    策略引擎
+    （规则 + AI风险 + ML + 冻结检查）
+         │
+         ▼
+    支付执行
+    （EOA 或 AA 路径）
+         │
+         ▼
+    Kite 链
+    （稳定币转账 + 审计轨迹）
 
-异常/高风险 → SimpleMultiSig（自研 2/3 多签）介入：冻结/解冻/策略更新
+紧急兜底：
+  SimpleMultiSig (2/3) → 冻结合约
   - 多签地址: 0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA
   - 冻结合约: 0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719
-  - 冻结操作 Tx: https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c
 ```
 
 ### 核心模块
+
+**核心模块**（基础功能必需）：
 
 | 模块 | 文件 | 功能 |
 |------|------|------|
 | **AI 意图解析** | [`src/lib/ai-intent.ts`](src/lib/ai-intent.ts) | 自然语言解析、风险评估、多AI提供商支持 |
 | **策略引擎** | [`src/lib/policy.ts`](src/lib/policy.ts) | 白名单/限额/AI风险评估/链上冻结检查 |
-| **ML 服务** | [`src/lib/ml/ml-service.ts`](src/lib/ml/ml-service.ts) | ML 模型管理（XGBoost、异常检测） |
-| **特征工程** | [`src/lib/ml/features.ts`](src/lib/ml/features.ts) | 59维特征计算 |
-| **异常检测** | [`src/lib/ml/anomaly-detection.ts`](src/lib/ml/anomaly-detection.ts) | 基于孤立森林的异常检测 |
-| **XGBoost 模型** | [`src/lib/ml/xgboost-model.ts`](src/lib/ml/xgboost-model.ts) | 风险预测模型 |
-| **数据收集** | [`src/lib/ml/data-collector.ts`](src/lib/ml/data-collector.ts) | 自动交易数据收集 |
-| **提示注入防护** | [`src/lib/prompt-injection.ts`](src/lib/prompt-injection.ts) | 输入验证和注入检测 |
-| **批量 AI 处理** | [`src/lib/batch-ai.ts`](src/lib/batch-ai.ts) | 批量 AI 请求处理 |
-| **异步链上查询** | [`src/lib/async-chain.ts`](src/lib/async-chain.ts) | 并行链上查询优化 |
-| **特征缓存** | [`src/lib/feature-cache.ts`](src/lib/feature-cache.ts) | 特征预计算和缓存 |
-| **重试机制** | [`src/lib/retry.ts`](src/lib/retry.ts) | 指数退避重试逻辑 |
-| **性能监控** | [`src/lib/metrics.ts`](src/lib/metrics.ts) | 性能监控和统计 |
-| **请求队列** | [`src/lib/request-queue.ts`](src/lib/request-queue.ts) | 请求队列和批处理 |
-| **动态系统提示词** | [`src/lib/system-prompt-builder.ts`](src/lib/system-prompt-builder.ts) | 动态 AI 系统提示词生成 |
 | **支付执行** | [`src/lib/run-pay.ts`](src/lib/run-pay.ts) | EOA/AA 支付路径统一接口 |
 | **ERC20 转账** | [`src/lib/erc20.ts`](src/lib/erc20.ts) | EOA 直接转账 |
 | **AA 支付** | [`src/lib/kite-aa.ts`](src/lib/kite-aa.ts) | Kite AA SDK 集成 |
+| **API 服务** | [`src/server.ts`](src/server.ts) | HTTP API（供前端调用） |
+
+**支持模块**（增强功能和优化）：
+
+| 模块 | 文件 | 功能 |
+|------|------|------|
 | **配置管理** | [`src/lib/config.ts`](src/lib/config.ts) | 环境变量加载与验证 |
 | **状态管理** | [`src/lib/state.ts`](src/lib/state.ts) | 本地支付记录与限额追踪 |
-| **API 服务** | [`src/server.ts`](src/server.ts) | HTTP API（供前端调用） |
+| **提示注入防护** | [`src/lib/prompt-injection.ts`](src/lib/prompt-injection.ts) | 输入验证和注入检测 |
+| **重试机制** | [`src/lib/retry.ts`](src/lib/retry.ts) | 指数退避重试逻辑 |
+| **批量 AI 处理** | [`src/lib/batch-ai.ts`](src/lib/batch-ai.ts) | 批量 AI 请求处理（性能优化） |
+| **异步链上查询** | [`src/lib/async-chain.ts`](src/lib/async-chain.ts) | 并行链上查询优化 |
+| **性能监控** | [`src/lib/metrics.ts`](src/lib/metrics.ts) | 性能监控和统计 |
+| **请求队列** | [`src/lib/request-queue.ts`](src/lib/request-queue.ts) | 请求队列和批处理 |
+
+**可选 ML 模块**（MVP/简化实现，详见[机器学习功能](#机器学习功能可选mvp简化实现)）：
+
+| 模块 | 文件 | 功能 |
+|------|------|------|
+| **ML 服务** | [`src/lib/ml/ml-service.ts`](src/lib/ml/ml-service.ts) | ML 模型管理（XGBoost、异常检测） |
+| **特征工程** | [`src/lib/ml/features.ts`](src/lib/ml/features.ts) | 59维特征计算 |
+| **异常检测** | [`src/lib/ml/anomaly-detection.ts`](src/lib/ml/anomaly-detection.ts) | 基于孤立森林的异常检测（MVP） |
+| **XGBoost 模型** | [`src/lib/ml/xgboost-model.ts`](src/lib/ml/xgboost-model.ts) | 风险预测模型（MVP） |
+| **数据收集** | [`src/lib/ml/data-collector.ts`](src/lib/ml/data-collector.ts) | 自动交易数据收集 |
+| **特征缓存** | [`src/lib/feature-cache.ts`](src/lib/feature-cache.ts) | 特征预计算和缓存 |
 
 ---
 
@@ -151,23 +172,7 @@ User(授权/配置策略)
 
 ### 机器学习功能（可选，MVP/简化实现）
 
-系统包含 ML 模块，用于高级风险检测。**注意：当前实现为简化 MVP 版本，用于演示目的。**
-
-#### 🧠 ML 风险评估（MVP）
-- **59维特征工程**：时间窗口（1h/24h/7d/30d）、行为序列、地址关联、用户画像、链上特征
-- **XGBoost 模型**：有监督风险预测模型（**简化 MVP 实现**，生产环境建议使用完整版本）
-- **孤立森林**：无监督异常检测，支持冷启动场景（**简化 MVP 实现**）
-- **自动数据收集**：生产环境中自动收集交易数据用于模型训练
-- **特征缓存**：常用收款地址特征预计算（1小时TTL）和用户特征缓存（30分钟TTL）
-
-**配置**：
-```bash
-# 启用 ML 功能
-ENABLE_ML_FEATURES=1
-ML_DATA_PATH=./data/training  # 数据存储路径
-```
-
-**⚠️ 重要提示**：当前 ML 实现为**简化 MVP 版本**，适用于演示和概念验证。生产环境建议使用 Python XGBoost/scikit-learn 训练模型，导出为 ONNX/JSON 格式在 Node.js 中推理。详见 [`docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md`](docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md) 了解生产级实现细节。
+系统包含 ML 模块，用于高级风险检测。**注意：当前实现为简化 MVP 版本，用于演示目的。** 详见[高级功能 - 机器学习模块](#机器学习模块mvp简化实现)了解详情。
 
 ### 安全特性
 
@@ -199,7 +204,6 @@ ML_DATA_PATH=./data/training  # 数据存储路径
 - **风险评估统计**：总评估数、平均分数、风险分布
 - **系统信息**：运行时间、内存使用、Node.js 版本
 
-详见 [`docs/PERFORMANCE_OPTIMIZATION.md`](docs/PERFORMANCE_OPTIMIZATION.md)。
 
 ### 支持的 AI 提供商
 
@@ -208,7 +212,7 @@ ML_DATA_PATH=./data/training  # 数据存储路径
 | 提供商 | 配置变量 | 默认模型 | 特点 |
 |--------|----------|----------|------|
 | **DeepSeek** | `DEEPSEEK_API_KEY` | `deepseek-chat` | 免费额度，推荐 |
-| **Google Gemini** | `GEMINI_API_KEY` | `gemini-1.5-pro` | 免费额度 |
+| **Google Gemini** | `GEMINI_API_KEY` | `gemini-1.5-flash` | 免费额度（Flash 版本更快） |
 | **OpenAI** | `OPENAI_API_KEY` | `gpt-4o-mini` | 付费 |
 | **Claude** | `CLAUDE_API_KEY` | `claude-3-haiku` | 付费 |
 | **Ollama** | `OLLAMA_URL` | `llama3.2` | 本地免费 |
@@ -225,7 +229,7 @@ AI_MODEL=deepseek-chat
 
 # 或使用 Gemini
 # GEMINI_API_KEY=your-gemini-api-key-here
-# AI_MODEL=gemini-1.5-pro
+# AI_MODEL=gemini-1.5-flash  # Flash 版本更快
 
 # 或使用本地 Ollama
 # OLLAMA_URL=http://localhost:11434/v1
@@ -240,41 +244,26 @@ AI_MODEL=deepseek-chat
 
 项目包含 ML 模块，用于高级风险检测（通过 `ENABLE_ML_FEATURES=1` 启用）。**⚠️ 注意：当前实现为简化 MVP 版本，用于演示目的。**
 
-- **59维特征工程**：时间窗口、行为序列、地址关联、用户画像、链上特征
-- **XGBoost 风险预测**：有监督学习模型进行风险评分（**简化 MVP 实现**）
-- **孤立森林异常检测**：无监督异常检测，支持冷启动场景（**简化 MVP 实现**）
+#### 🧠 ML 风险评估（MVP）
+- **59维特征工程**：时间窗口（1h/24h/7d/30d）、行为序列、地址关联、用户画像、链上特征
+- **XGBoost 模型**：有监督风险预测模型（**简化 MVP 实现**，生产环境建议使用完整版本）
+- **孤立森林**：无监督异常检测，支持冷启动场景（**简化 MVP 实现**）
 - **自动数据收集**：生产环境中自动收集交易数据用于模型训练
-- **特征缓存**：预计算特征，基于 TTL 的缓存机制
+- **特征缓存**：常用收款地址特征预计算（1小时TTL）和用户特征缓存（30分钟TTL）
 
-**实现状态**：详见 [`docs/ALGORITHM_IMPLEMENTATION_STATUS.md`](docs/ALGORITHM_IMPLEMENTATION_STATUS.md) 了解算法完成度分析。
+**配置**：
+```bash
+# 启用 ML 功能
+ENABLE_ML_FEATURES=1
+ML_DATA_PATH=./data/training  # 数据存储路径
+```
+
+**实现状态**：详见 [`docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md`](docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md) 了解算法分析与优化建议。
 
 **⚠️ 重要提示**：当前 ML 实现为**简化 MVP 版本**，适用于演示和概念验证。生产环境部署建议：
 1. 使用 Python（XGBoost/scikit-learn）训练模型
 2. 导出模型为 ONNX 或 JSON 格式
 3. 在 Node.js 中使用 ONNX Runtime 或自定义推理引擎
-
-### 安全与可靠性
-
-- **提示注入防护**：检测 20+ 注入模式，自动输入清理
-- **重试机制**：AI API 指数退避重试（3次），链上 RPC 重试（5次）
-- **错误处理**：20+ 错误码，友好错误消息（中英文）
-- **输入验证**：长度限制、格式验证、注入检测
-
-### 性能优化
-
-- **批量 AI 处理**：队列和批量处理多个 AI 请求（减少 API 调用）
-- **异步链上查询**：并行批量查询冻结状态、余额（降低延迟）
-- **特征缓存**：常用收款地址/用户特征预计算（减少计算）
-- **请求队列**：并发请求管理，支持优先级调度
-- **请求去重**：避免重复请求（5秒TTL）
-
-### 性能监控
-
-- **Metrics API**：`GET /api/metrics` - 实时性能指标
-- **仪表盘组件**：`MetricsDashboard` React 组件用于前端可视化
-- **关键指标**：API 性能、AI 统计、支付成功率、风险评估分布、系统信息
-
-详见 [`docs/PERFORMANCE_OPTIMIZATION.md`](docs/PERFORMANCE_OPTIMIZATION.md)。
 
 ---
 
@@ -299,11 +288,20 @@ AI_MODEL=deepseek-chat
 
 ---
 
-## 应用场景与未来工作（与 Kite 白皮书对齐）
+## 应用场景与未来工作
 
-**应用场景（白皮书 §6）。** 白皮书描述了 Agent 自主性与可编程支付结合的场景：**游戏**（真实小额交易、家长限额）、**物联网**（机对机带宽、按包付费）、**创作者经济**（粉丝打赏、可编程分成）、**API 经济**（每次调用即一笔交易、按请求计费）、**电商**（可编程托管、条件释放）、**个人理财**（自主预算与账单、限额内小额投资）、**知识市场**（去中心化专家、按贡献小额支付）、**供应链**（自主商业网络、里程碑托管）、**DAO**（AI 增强财库、政策内自动再平衡、大额需人类投票）。AgentPayGuard 提供这些场景所依赖的**支付 + 策略 + 冻结**层：白名单、限额、链上冻结与可选 AI 风险。上述任一场景（游戏 Agent、API 计费、个人理财机器人等）均可调用我们的 API，在 Kite 上获得可执行规则与可审计记录。
+**应用场景。** AgentPayGuard 提供**支付 + 策略 + 冻结**层，支持以下场景：
 
-**未来工作（白皮书 §7）。** 白皮书展望：**零知识可验证 Agent 凭证**（证明属性而不泄露数据）、**可验证推理与计算**（模型输出与决策链的密码学证明）、**可移植声誉网络**（链上声誉、跨平台可移植、自动化信任决策）、**可验证服务发现**（能力与合规证明）、**完整可追溯与证明**（每笔动作配证明、合规与自动救济）。我们自己的路线——本地或边缘部署大模型实现亚秒级、数据可控的意图/风险——与之一致：策略与审计层不变，未来可接入可证明或本地模型；可验证推理（当可用时）可接入同一流水线。
+- **游戏**：真实小额交易，支持可编程限额（如家长控制）
+- **API 经济**：按请求计费，每次 API 调用即一笔交易
+- **个人理财**：自主预算管理与账单支付，在可配置限额内运行
+
+任何 Agent 或服务均可调用我们的 API（`/api/pay`、`/api/ai-pay`），在 Kite 上获得可执行规则与可审计记录。
+
+**未来工作。** 主要方向包括：
+
+- **可验证推理**：模型输出与决策链的密码学证明，实现无需信任的 AI 决策验证
+- **本地/边缘模型部署**：通过本地 LLM 实现亚秒级延迟与数据可控，减少对云端 API 的依赖
 
 详见：[Kite 白皮书](https://gokite.ai/kite-whitepaper)；全文见 `docs/resources/kite_whitepaper.md`（§6 应用场景，§7 未来工作）。
 
@@ -320,14 +318,15 @@ AI_MODEL=deepseek-chat
 
 ---
 
-## FAQ：冻结后资金怎么取出来？
+## 🎯 项目亮点
 
-在本项目中，「冻结」指**禁止 Agent 向该地址转账**，不锁定、不没收该地址上已有资产。因此：
-
-- **已在**被冻结地址内的资金仍由该地址的私钥控制，可照常转出。
-- 若要让 Agent **再次向该地址付款**，由多签成员执行**解冻**；之后策略即允许向该地址支付。
-
-若未来设计中将资金存放在多签控制的**金库合约**中，提款将是另一笔多签执行的交易（如「从金库提款到地址 X」）；当前 SimpleFreeze 仅限制「Agent → 收款人」，不涉及金库提款。
+1. **🤖 真正的AI Agent**：不仅仅是自动化脚本，而是能理解自然语言、进行风险评估的智能系统
+2. **🔒 多层安全防护**：传统规则 + AI风险评估 + ML风险检测（可选）+ 链上冻结检查
+3. **🚀 端到端工作流**：从自然语言请求到链上执行的完整闭环
+4. **📊 可验证的AI决策**：AI风险评估透明可解释，提供风险理由和建议
+5. **🔄 优雅降级**：无AI API时自动使用回退解析器，保证系统可用性
+6. **🌐 多AI提供商支持**：支持 DeepSeek、Gemini、OpenAI、Claude、Ollama 等多种提供商
+7. **🔐 安全第一**：严格的环境变量管理、敏感信息保护、多签冻结机制
 
 ---
 
@@ -386,7 +385,66 @@ pnpm demo:ai-agent "Pay 10 USDC to 0xd2d45ef2f2ddaffc8c8bc03cedc4f55fb9e97e2b fo
 
 - **KITE：** [Kite 测试网水龙头](https://faucet.gokite.ai/)（每地址限额）。
 - **稳定币：** 在 `.env` 中设置 `SETTLEMENT_TOKEN_ADDRESS`（见 Kite 文档测试网代币）。
-- 低余额测试：小额 `AMOUNT` / `MAX_AMOUNT` / `DAILY_LIMIT` 配合干跑可覆盖大部分策略/冻结场景；详见 `docs/guides/TESTING_GUIDE.md`。
+- 低余额测试：小额 `AMOUNT` / `MAX_AMOUNT` / `DAILY_LIMIT` 配合干跑可覆盖大部分策略/冻结场景。
+
+## 技术架构（详细版）
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    用户 / 前端                                │
+│    （自然语言请求 / 结构化支付）                               │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│            API 服务 (src/server.ts)                          │
+│    /api/ai-pay, /api/pay, /api/ai-chat, /api/freeze          │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│      Agent 身份 (src/lib/kite-agent-identity.ts)            │
+│    KitePass API Key / AA SDK 账户抽象                         │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│        AI 意图解析器 (src/lib/ai-intent.ts)                  │
+│    parseAndAssessRisk(): 意图 + 风险（0-100 分数）           │
+│    （优先单次 LLM 调用，失败则回退为两次调用）                 │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│         策略引擎 (src/lib/policy.ts)                         │
+│    evaluatePolicyWithAI():                                   │
+│    ├─ 传统规则：白名单、限额、冻结检查                         │
+│    ├─ AI 风险评估（来自上一步）                               │
+│    └─ ML 风险评估（可选，如果 ENABLE_ML_FEATURES）            │
+│         ├─ 异常检测（孤立森林 MVP）                           │
+│         └─ XGBoost 预测（MVP）                               │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│      支付执行 (src/lib/run-pay.ts)                           │
+│    runPay():                                                 │
+│    ├─ EOA 路径 → erc20.ts: transferErc20()                  │
+│    └─ AA 路径 → kite-aa.ts: sendErc20ViaAA()                │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│            Kite 链（稳定币转账）                              │
+│            链上审计轨迹                                       │
+└─────────────────────────────────────────────────────────────┘
+
+紧急兜底（并行路径）：
+  SimpleMultiSig (2/3) → 冻结合约 → 阻止支付
+  - 多签地址: 0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA
+  - 冻结合约: 0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719
+  - 冻结操作 Tx: https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c
+```
 
 ## 仓库结构
 
@@ -584,18 +642,6 @@ cd frontend && npm i && npm run dev
 
 ---
 
-## 📝 最新更新（2026-01-31）
-
-✅ **AI Agent升级完成**：项目已从"安全支付系统"升级为"智能AI Agent支付系统"
-- 新增：[`src/lib/ai-intent.ts`](src/lib/ai-intent.ts) - AI意图解析和风险评估模块（269行）
-- 新增：[`src/demo-ai-agent.ts`](src/demo-ai-agent.ts) - AI Agent演示脚本（208行）
-- 增强：[`src/lib/policy.ts`](src/lib/policy.ts) - AI增强策略引擎（扩展到512行）
-- 更新：完整AI工作流，支持自然语言接口
-
-**Git提交**：`39233da` - "feat: Add AI Agent capabilities to AgentPayGuard"
-
----
-
 ## 🔧 技术栈
 
 ### 后端
@@ -623,30 +669,16 @@ cd frontend && npm i && npm run dev
 
 | 文档 | 用途 |
 |------|------|
-| **使用指南** |
-| [`AI_AGENT_GUIDE.md`](docs/guides/AI_AGENT_GUIDE.md) | 🤖 **AI Agent 开发指南**（自然语言解析 + 风险评估 + API参考） |
-| [`TESTING_GUIDE.md`](docs/guides/TESTING_GUIDE.md) | 🧪 Role B 测试与演讲指南（5 个场景 + 演讲脚本） |
-| [`ROLE_A_GUIDE.md`](docs/guides/ROLE_A_GUIDE.md) | 🔗 多签部署指南（Gnosis Safe + TokenGuard） |
-| [`ROLE_C_GUIDE.md`](docs/guides/ROLE_C_GUIDE.md) | 🎨 **前端开发指南**（Web UI + 可视化 + 科技感设计） |
-| [`ROLE_D_GUIDE.md`](docs/guides/ROLE_D_GUIDE.md) | 🎥 PPT 与视频制作指南（支持 Role B 演讲） |
+| **可用指南** |
+| [`AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md`](docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md) | 🧠 AI 风险控制算法分析与优化建议 |
+| [`DEMO_VIDEO_GUIDE.md`](docs/guides/DEMO_VIDEO_GUIDE.md) | 🎥 演示视频制作指南 |
+| [`AGENT_COMPLETENESS_ANALYSIS.md`](docs/guides/AGENT_COMPLETENESS_ANALYSIS.md) | 📊 Agent 完成度分析 |
+| [`AI_CHAT_TROUBLESHOOTING.md`](docs/guides/AI_CHAT_TROUBLESHOOTING.md) | 🔧 AI 聊天故障排除指南 |
 | **参考文档** |
 | [`ARCHITECTURE.md`](docs/reference/ARCHITECTURE.md) | 🏗️ 系统架构与设计决策 |
 | [`allocation.md`](docs/reference/allocation.md) | 👥 角色分工与交付物清单 |
-| [`PM_AND_ROLE_B_QUICKREF.md`](docs/internal/PM_AND_ROLE_B_QUICKREF.md) | 📋 PM / 角色 B 快速参考（检查清单 + 文档入口） |
 | [`resources/`](docs/resources/) | 📚 **原始资源**（赛道规则、官方链接等） |
 | **内部管理** |
-| [`FINAL_DELIVERY_CHECKLIST.md`](docs/internal/FINAL_DELIVERY_CHECKLIST.md) | ✅ 最终交付清单（角色 A/B/C/D） |
 | [`AGENT_WORKLOG.md`](docs/internal/AGENT_WORKLOG.md) | 📝 工作日志（Phase 摘要） |
 | [`.clinerules`](.clinerules) | 📋 Agent 工作约束 + 安全政策（16 条规则、.env 保护） |
 
----
-
-## 🎯 项目亮点（面向评委）
-
-1. **🤖 真正的AI Agent**：不仅仅是自动化脚本，而是能理解自然语言、进行风险评估的智能系统
-2. **🔒 多层安全防护**：传统规则 + AI风险评估 + 链上冻结检查
-3. **🚀 端到端工作流**：从自然语言请求到链上执行的完整闭环
-4. **📊 可验证的AI决策**：AI风险评估透明可解释，提供风险理由和建议
-5. **🔄 优雅降级**：无AI API时自动使用回退解析器，保证系统可用性
-6. **🌐 多AI提供商支持**：支持 DeepSeek、Gemini、OpenAI、Claude、Ollama 等多种提供商
-7. **🔐 安全第一**：严格的环境变量管理、敏感信息保护、多签冻结机制

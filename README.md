@@ -68,45 +68,66 @@ Aligned with Kite's **SPACE** direction (stablecoin-native, programmable constra
 ### Technical Architecture
 
 ```
-User (Authorization/Policy Configuration)
-  └─ Agent (Kite Identity: Agent/Passport)
-       └─ AI Intent Parser (Natural Language Parsing + Risk Assessment)
-            └─ AA Smart Account (Kite AA SDK)
-                 └─ Policy Guard (Allowlist/Limits/Validity + AI Risk Assessment...)
-                      └─ Stablecoin Payment (On-chain Transfer)
-                           └─ Audit Trail (On-chain Verifiable + Optional Local Logs)
+User Request (Natural Language)
+         │
+         ▼
+    AI Intent Parser
+    (Parse + Risk Assessment)
+         │
+         ▼
+    Policy Engine
+    (Rules + AI Risk + ML + Freeze Check)
+         │
+         ▼
+    Payment Execution
+    (EOA or AA Path)
+         │
+         ▼
+    Kite Chain
+    (Stablecoin Transfer + Audit Trail)
 
-Anomaly/High Risk → SimpleMultiSig (2/3 Multisig) Intervention: Freeze/Unfreeze/Policy Update
-  - Multisig address: 0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA
-  - Freeze contract: 0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719
-  - Freeze operation Tx: https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c
+Emergency Override:
+  SimpleMultiSig (2/3) → Freeze Contract
+  - Multisig: 0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA
+  - Freeze Contract: 0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719
 ```
 
 ### Core Modules
+
+**Core modules** (essential for basic functionality):
 
 | Module | File | Function |
 |--------|------|----------|
 | **AI Intent Parser** | [`src/lib/ai-intent.ts`](src/lib/ai-intent.ts) | Natural language parsing, risk assessment, multi-AI provider support |
 | **Policy Engine** | [`src/lib/policy.ts`](src/lib/policy.ts) | Allowlist/limits/AI risk assessment/on-chain freeze check |
-| **ML Service** | [`src/lib/ml/ml-service.ts`](src/lib/ml/ml-service.ts) | ML model management (XGBoost, anomaly detection) |
-| **Feature Engineering** | [`src/lib/ml/features.ts`](src/lib/ml/features.ts) | 59-dimensional feature computation |
-| **Anomaly Detection** | [`src/lib/ml/anomaly-detection.ts`](src/lib/ml/anomaly-detection.ts) | Isolation Forest-based anomaly detection |
-| **XGBoost Model** | [`src/lib/ml/xgboost-model.ts`](src/lib/ml/xgboost-model.ts) | Risk prediction model |
-| **Data Collector** | [`src/lib/ml/data-collector.ts`](src/lib/ml/data-collector.ts) | Automatic transaction data collection |
-| **Prompt Injection Protection** | [`src/lib/prompt-injection.ts`](src/lib/prompt-injection.ts) | Input validation and injection detection |
-| **Batch AI Processing** | [`src/lib/batch-ai.ts`](src/lib/batch-ai.ts) | Batch AI request processing |
-| **Async Chain Queries** | [`src/lib/async-chain.ts`](src/lib/async-chain.ts) | Parallel chain query optimization |
-| **Feature Caching** | [`src/lib/feature-cache.ts`](src/lib/feature-cache.ts) | Feature precomputation and caching |
-| **Retry Mechanism** | [`src/lib/retry.ts`](src/lib/retry.ts) | Exponential backoff retry logic |
-| **Performance Metrics** | [`src/lib/metrics.ts`](src/lib/metrics.ts) | Performance monitoring and statistics |
-| **Request Queue** | [`src/lib/request-queue.ts`](src/lib/request-queue.ts) | Request queue and batch processing |
-| **Dynamic System Prompt** | [`src/lib/system-prompt-builder.ts`](src/lib/system-prompt-builder.ts) | Dynamic AI system prompt generation |
 | **Payment Execution** | [`src/lib/run-pay.ts`](src/lib/run-pay.ts) | Unified interface for EOA/AA payment paths |
 | **ERC20 Transfer** | [`src/lib/erc20.ts`](src/lib/erc20.ts) | Direct EOA transfer |
 | **AA Payment** | [`src/lib/kite-aa.ts`](src/lib/kite-aa.ts) | Kite AA SDK integration |
+| **API Service** | [`src/server.ts`](src/server.ts) | HTTP API (for frontend calls) |
+
+**Supporting modules** (enhancements and optimizations):
+
+| Module | File | Function |
+|--------|------|----------|
 | **Config Management** | [`src/lib/config.ts`](src/lib/config.ts) | Environment variable loading and validation |
 | **State Management** | [`src/lib/state.ts`](src/lib/state.ts) | Local payment records and limit tracking |
-| **API Service** | [`src/server.ts`](src/server.ts) | HTTP API (for frontend calls) |
+| **Prompt Injection Protection** | [`src/lib/prompt-injection.ts`](src/lib/prompt-injection.ts) | Input validation and injection detection |
+| **Retry Mechanism** | [`src/lib/retry.ts`](src/lib/retry.ts) | Exponential backoff retry logic |
+| **Batch AI Processing** | [`src/lib/batch-ai.ts`](src/lib/batch-ai.ts) | Batch AI request processing (performance optimization) |
+| **Async Chain Queries** | [`src/lib/async-chain.ts`](src/lib/async-chain.ts) | Parallel chain query optimization |
+| **Performance Metrics** | [`src/lib/metrics.ts`](src/lib/metrics.ts) | Performance monitoring and statistics |
+| **Request Queue** | [`src/lib/request-queue.ts`](src/lib/request-queue.ts) | Request queue and batch processing |
+
+**Optional ML modules** (MVP/Simplified implementation, see [Machine Learning Features](#machine-learning-features-optional-mvpsimplified-implementation)):
+
+| Module | File | Function |
+|--------|------|----------|
+| **ML Service** | [`src/lib/ml/ml-service.ts`](src/lib/ml/ml-service.ts) | ML model management (XGBoost, anomaly detection) |
+| **Feature Engineering** | [`src/lib/ml/features.ts`](src/lib/ml/features.ts) | 59-dimensional feature computation |
+| **Anomaly Detection** | [`src/lib/ml/anomaly-detection.ts`](src/lib/ml/anomaly-detection.ts) | Isolation Forest-based anomaly detection (MVP) |
+| **XGBoost Model** | [`src/lib/ml/xgboost-model.ts`](src/lib/ml/xgboost-model.ts) | Risk prediction model (MVP) |
+| **Data Collector** | [`src/lib/ml/data-collector.ts`](src/lib/ml/data-collector.ts) | Automatic transaction data collection |
+| **Feature Caching** | [`src/lib/feature-cache.ts`](src/lib/feature-cache.ts) | Feature precomputation and caching |
 
 ---
 
@@ -158,23 +179,7 @@ Natural language request → AI intent parsing → Risk assessment → Policy ch
 
 ### Machine Learning Features (Optional, MVP/Simplified Implementation)
 
-The system includes an ML module for advanced risk detection. **Note: Current implementations are simplified MVP versions for demonstration purposes.**
-
-#### 🧠 ML-Based Risk Detection (MVP)
-- **59-dimensional feature engineering**: Time windows (1h/24h/7d/30d), behavior sequences, address associations, user profiles, on-chain features
-- **XGBoost model**: Supervised risk prediction model (**simplified MVP implementation**, production-ready version recommended)
-- **Isolation Forest**: Unsupervised anomaly detection for cold-start scenarios (**simplified MVP implementation**)
-- **Automatic data collection**: Collects transaction data for model training during production use
-- **Feature caching**: Precomputed features for common recipients (1h TTL) and users (30min TTL)
-
-**Configuration**:
-```bash
-# Enable ML features
-ENABLE_ML_FEATURES=1
-ML_DATA_PATH=./data/training  # Data storage path
-```
-
-**⚠️ Important**: Current ML implementations are **simplified MVP versions** suitable for demonstration and proof-of-concept. For production use, we recommend training models with Python XGBoost/scikit-learn and exporting to ONNX/JSON format for Node.js inference. See [`docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md`](docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md) for production-ready implementation details.
+The system includes an ML module for advanced risk detection. **Note: Current implementations are simplified MVP versions for demonstration purposes.** See [Advanced Features - Machine Learning Module](#machine-learning-module-mvpsimplified-implementation) for details.
 
 ### Security Features
 
@@ -206,7 +211,6 @@ ML_DATA_PATH=./data/training  # Data storage path
 - **Risk assessment statistics**: Total assessments, average score, risk distribution
 - **System information**: Uptime, memory usage, Node.js version
 
-See [`docs/PERFORMANCE_OPTIMIZATION.md`](docs/PERFORMANCE_OPTIMIZATION.md) for details.
 
 ### Supported AI Providers
 
@@ -247,41 +251,26 @@ AI_MODEL=deepseek-chat
 
 The project includes an ML module for advanced risk detection (enabled with `ENABLE_ML_FEATURES=1`). **⚠️ Note: Current implementations are simplified MVP versions for demonstration purposes.**
 
-- **59-dimensional feature engineering**: Time windows, behavior sequences, address associations, user profiles, on-chain features
-- **XGBoost risk prediction**: Supervised learning model for risk scoring (**simplified MVP implementation**)
-- **Isolation Forest anomaly detection**: Unsupervised anomaly detection for cold-start scenarios (**simplified MVP implementation**)
-- **Automatic data collection**: Collects transaction data during production use for model training
-- **Feature caching**: Precomputed features with TTL-based caching
+#### 🧠 ML-Based Risk Detection (MVP)
+- **59-dimensional feature engineering**: Time windows (1h/24h/7d/30d), behavior sequences, address associations, user profiles, on-chain features
+- **XGBoost model**: Supervised risk prediction model (**simplified MVP implementation**, production-ready version recommended)
+- **Isolation Forest**: Unsupervised anomaly detection for cold-start scenarios (**simplified MVP implementation**)
+- **Automatic data collection**: Collects transaction data for model training during production use
+- **Feature caching**: Precomputed features for common recipients (1h TTL) and users (30min TTL)
 
-**Implementation Status**: See [`docs/ALGORITHM_IMPLEMENTATION_STATUS.md`](docs/ALGORITHM_IMPLEMENTATION_STATUS.md) for detailed algorithm completion analysis.
+**Configuration**:
+```bash
+# Enable ML features
+ENABLE_ML_FEATURES=1
+ML_DATA_PATH=./data/training  # Data storage path
+```
+
+**Implementation Status**: See [`docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md`](docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md) for detailed algorithm analysis and optimization recommendations.
 
 **⚠️ Important**: Current ML implementations are **simplified MVP versions** suitable for demonstration and proof-of-concept. For production deployment, we recommend:
 1. Training models with Python (XGBoost/scikit-learn)
 2. Exporting models to ONNX or JSON format
 3. Using ONNX Runtime or custom inference engine in Node.js
-
-### Security & Reliability
-
-- **Prompt injection protection**: 20+ injection patterns detected, automatic input sanitization
-- **Retry mechanism**: Exponential backoff for AI API (3 retries) and chain RPC (5 retries)
-- **Error handling**: 20+ error codes with friendly messages (Chinese/English)
-- **Input validation**: Length limits, format validation, injection detection
-
-### Performance Optimizations
-
-- **Batch AI processing**: Queue and batch multiple AI requests (reduces API calls)
-- **Async chain queries**: Parallel batch queries for freeze status, balances (reduces latency)
-- **Feature caching**: Precomputed features for common recipients/users (reduces computation)
-- **Request queue**: Concurrent request management with priority scheduling
-- **Request deduplication**: Avoid duplicate requests (5s TTL)
-
-### Performance Monitoring
-
-- **Metrics API**: `GET /api/metrics` - Real-time performance indicators
-- **Dashboard component**: `MetricsDashboard` React component for frontend visualization
-- **Key metrics**: API performance, AI statistics, payment success rate, risk assessment distribution, system info
-
-See [`docs/PERFORMANCE_OPTIMIZATION.md`](docs/PERFORMANCE_OPTIMIZATION.md) for details.
 
 ---
 
@@ -299,7 +288,7 @@ See [`docs/PERFORMANCE_OPTIMIZATION.md`](docs/PERFORMANCE_OPTIMIZATION.md) for d
    - **Status**: 59-dimensional feature engineering complete, models integrated into policy engine
    - **Note**: Current implementations are **simplified MVP versions** for demonstration. Production use recommended: train with Python XGBoost/scikit-learn, export to ONNX/JSON
    - **Why**: Combines LLM's contextual understanding with ML's pattern recognition for higher accuracy
-   - **See**: [`docs/ALGORITHM_IMPLEMENTATION_STATUS.md`](docs/ALGORITHM_IMPLEMENTATION_STATUS.md) for implementation details
+   - **See**: [`docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md`](docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md) for algorithm analysis
 
 3. **Anomaly Detection** ✅ **Implemented (MVP)**
    - **Current**: ✅ Isolation Forest implemented (**simplified MVP version** using Z-score statistics)
@@ -310,16 +299,12 @@ See [`docs/PERFORMANCE_OPTIMIZATION.md`](docs/PERFORMANCE_OPTIMIZATION.md) for d
 ### Long-term (P1/P2)
 
 1. **Verifiable Inference**
-   - **Vision**: Cryptographic proof of model outputs and decision lineage (aligned with Kite whitepaper §7)
+   - **Vision**: Cryptographic proof of model outputs and decision lineage
    - **Why**: Enables trustless verification of AI decisions without revealing model internals
 
-2. **Portable Reputation Networks**
-   - **Vision**: On-chain reputation, cross-platform portability, automated trust decisions
-   - **Why**: Builds trust across different agent platforms and services
-
-3. **ZK-verified Agent Credentials**
-   - **Vision**: Prove agent attributes without revealing data
-   - **Why**: Privacy-preserving identity verification for compliance and trust
+2. **Local/Edge Model Deployment**
+   - **Vision**: Sub-second latency with privacy-preserving local LLMs
+   - **Why**: Reduces dependency on cloud APIs and enables real-time decisions
 
 ### Current Performance
 
@@ -342,19 +327,13 @@ So other Dapps can reuse our policy and risk layer without reimplementing it; th
 
 ## Use Cases
 
-The Kite whitepaper (§6) describes scenarios where agent autonomy meets programmable payments. AgentPayGuard implements the **payment + policy + freeze** layer these use cases rest on:
+AgentPayGuard implements the **payment + policy + freeze** layer for agent-native payments:
 
-- **Gaming**: True microtransactions with parental limits
-- **IoT**: M2M bandwidth, pay-per-packet
-- **Creator Economy**: Fan-to-creator tips, programmable splits
-- **API Economy**: Every call becomes a transaction, per-request billing
-- **E-commerce**: Programmable escrow, conditional release
-- **Personal Finance**: Autonomous budgets, bills, small investments under limits
-- **Knowledge Markets**: Decentralized expertise, micropayments per contribution
-- **Supply Chain**: Autonomous commercial networks, escrow on milestones
-- **DAOs**: AI-enhanced treasury, rebalancing within policy, human vote for large moves
+- **Gaming**: True microtransactions with programmable limits (e.g., parental controls)
+- **API Economy**: Per-request billing where every API call becomes a transaction
+- **Personal Finance**: Autonomous budget management and bill payments under configurable limits
 
-Any of the above—a game agent, an API billing service, a personal-finance bot—can call our APIs (`/api/pay`, `/api/ai-pay`) and get enforced rules and auditability on Kite.
+Any agent or service can call our APIs (`/api/pay`, `/api/ai-pay`) and get enforced rules and auditability on Kite.
 
 Details: [Kite Whitepaper](https://gokite.ai/kite-whitepaper); full text in `docs/resources/kite_whitepaper.md` (§6 Use Cases, §7 Future Work).
 
@@ -371,14 +350,15 @@ Details: [Kite Whitepaper](https://gokite.ai/kite-whitepaper); full text in `doc
 
 ---
 
-## FAQ: After Freeze, How Are Funds Recovered?
+## Project Highlights
 
-In AgentPayGuard, "freeze" means **the Agent is not allowed to send funds to that address**. It does **not** lock or confiscate assets already held by that address. So:
-
-- Funds **already in** the frozen address remain under the control of that address's owner (private key). The owner can move them as usual.
-- To allow the Agent to **pay that address again**, multisig members execute **unfreeze**; after that, payments to that address are permitted again by policy.
-
-If in a future design funds were held in a **vault contract** controlled by multisig, withdrawal would be a separate multisig-executed transaction (e.g. "withdraw from vault to address X"); the current SimpleFreeze only gates "Agent → recipient," not vault withdrawals.
+1. **🤖 True AI Agent**: Not just an automation script, but an intelligent system that understands natural language and performs risk assessment
+2. **🔒 Multi-layer Security**: Traditional rules + AI risk assessment + ML-based detection (optional) + on-chain freeze check
+3. **🚀 End-to-End Workflow**: Complete loop from natural language request to on-chain execution
+4. **📊 Verifiable AI Decisions**: AI risk assessment is transparent and explainable, providing risk reasons and suggestions
+5. **🔄 Graceful Degradation**: Automatically uses fallback parser when AI API is unavailable, ensuring system availability
+6. **🌐 Multi-AI Provider Support**: Supports DeepSeek, Gemini, OpenAI, Claude, Ollama and other providers
+7. **🔐 Security First**: Strict environment variable management, sensitive information protection, multisig freeze mechanism
 
 ---
 
@@ -437,7 +417,66 @@ Optional: [Chainlink env-enc](https://www.npmjs.com/package/@chainlink/env-enc) 
 
 - **KITE:** [Kite testnet faucet](https://faucet.gokite.ai/) (per-address limit).
 - **Stablecoin:** Set `SETTLEMENT_TOKEN_ADDRESS` in `.env` (see Kite docs for testnet token).
-- Low-balance testing: small `AMOUNT` / `MAX_AMOUNT` / `DAILY_LIMIT` with dry run covers most policy/freeze cases; see `docs/guides/TESTING_GUIDE.md` for details.
+- Low-balance testing: small `AMOUNT` / `MAX_AMOUNT` / `DAILY_LIMIT` with dry run covers most policy/freeze cases.
+
+## Technical Architecture (Detailed)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    User / Frontend                          │
+│    (Natural Language Request / Structured Payment)          │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│              API Server (src/server.ts)                    │
+│    /api/ai-pay, /api/pay, /api/ai-chat, /api/freeze        │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│      Agent Identity (src/lib/kite-agent-identity.ts)       │
+│    KitePass API Key / AA SDK Account Abstraction           │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│         AI Intent Parser (src/lib/ai-intent.ts)             │
+│    parseAndAssessRisk(): Intent + Risk (0-100 score)        │
+│    (Single LLM call when possible, fallback to 2 calls)    │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│         Policy Engine (src/lib/policy.ts)                   │
+│    evaluatePolicyWithAI():                                  │
+│    ├─ Traditional Rules: Allowlist, Limits, Freeze Check   │
+│    ├─ AI Risk Assessment (from previous step)              │
+│    └─ ML Risk Detection (optional, if ENABLE_ML_FEATURES)  │
+│         ├─ Anomaly Detection (Isolation Forest MVP)        │
+│         └─ XGBoost Prediction (MVP)                        │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│      Payment Execution (src/lib/run-pay.ts)                 │
+│    runPay():                                                │
+│    ├─ EOA Path → erc20.ts: transferErc20()                  │
+│    └─ AA Path → kite-aa.ts: sendErc20ViaAA()                │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Kite Chain (Stablecoin Transfer)               │
+│              On-chain Audit Trail                           │
+└─────────────────────────────────────────────────────────────┘
+
+Emergency Override (Parallel Path):
+  SimpleMultiSig (2/3) → Freeze Contract → Block Payments
+  - Multisig: 0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA
+  - Freeze Contract: 0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719
+  - Freeze Tx: https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c
+```
 
 ## Repo structure
 
@@ -641,18 +680,6 @@ In development environment, `/api` proxies to main repo API (3456). Open homepag
 
 ---
 
-## Latest Updates (2026-01-31)
-
-✅ **AI Agent Upgrade Complete**: Project upgraded from "secure payment system" to "intelligent AI Agent payment system"
-- Added: [`src/lib/ai-intent.ts`](src/lib/ai-intent.ts) - AI intent parsing and risk assessment module (269 lines)
-- Added: [`src/demo-ai-agent.ts`](src/demo-ai-agent.ts) - AI Agent demo script (208 lines)
-- Enhanced: [`src/lib/policy.ts`](src/lib/policy.ts) - AI-enhanced policy engine (expanded to 512 lines)
-- Updated: Complete AI workflow, supports natural language interface
-
-**Git Commit**: `39233da` - "feat: Add AI Agent capabilities to AgentPayGuard"
-
----
-
 ## Technical Stack
 
 ### Backend
@@ -680,30 +707,16 @@ In development environment, `/api` proxies to main repo API (3456). Open homepag
 
 | Document | Purpose |
 |----------|---------|
-| **Usage Guides** |
-| [`AI_AGENT_GUIDE.md`](docs/guides/AI_AGENT_GUIDE.md) | 🤖 **AI Agent Development Guide** (natural language parsing + risk assessment + API reference) |
-| [`TESTING_GUIDE.md`](docs/guides/TESTING_GUIDE.md) | 🧪 Role B Testing & Presentation Guide (5 scenarios + presentation script) |
-| [`ROLE_A_GUIDE.md`](docs/guides/ROLE_A_GUIDE.md) | 🔗 Multisig Deployment Guide (Gnosis Safe + TokenGuard) |
-| [`ROLE_C_GUIDE.md`](docs/guides/ROLE_C_GUIDE.md) | 🎨 **Frontend Development Guide** (Web UI + visualization + tech design) |
-| [`ROLE_D_GUIDE.md`](docs/guides/ROLE_D_GUIDE.md) | 🎥 PPT & Video Production Guide (supports Role B presentation) |
+| **Available Guides** |
+| [`AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md`](docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md) | 🧠 AI Risk Control Algorithm Analysis & Optimization Recommendations |
+| [`DEMO_VIDEO_GUIDE.md`](docs/guides/DEMO_VIDEO_GUIDE.md) | 🎥 Demo Video Production Guide |
+| [`AGENT_COMPLETENESS_ANALYSIS.md`](docs/guides/AGENT_COMPLETENESS_ANALYSIS.md) | 📊 Agent Completeness Analysis |
+| [`AI_CHAT_TROUBLESHOOTING.md`](docs/guides/AI_CHAT_TROUBLESHOOTING.md) | 🔧 AI Chat Troubleshooting Guide |
 | **Reference Documents** |
 | [`ARCHITECTURE.md`](docs/reference/ARCHITECTURE.md) | 🏗️ System Architecture & Design Decisions |
 | [`allocation.md`](docs/reference/allocation.md) | 👥 Role Division & Deliverables List |
-| [`PM_AND_ROLE_B_QUICKREF.md`](docs/internal/PM_AND_ROLE_B_QUICKREF.md) | 📋 PM / Role B Quick Reference (checklist + document entry) |
 | [`resources/`](docs/resources/) | 📚 **Original Resources** (track rules, official links, etc.) |
 | **Internal Management** |
-| [`FINAL_DELIVERY_CHECKLIST.md`](docs/internal/FINAL_DELIVERY_CHECKLIST.md) | ✅ Final Delivery Checklist (Roles A/B/C/D) |
 | [`AGENT_WORKLOG.md`](docs/internal/AGENT_WORKLOG.md) | 📝 Work Log (Phase summaries) |
 | [`.clinerules`](.clinerules) | 📋 Agent Work Constraints + Security Policy (16 rules, .env protection) |
 
----
-
-## Project Highlights (For Judges)
-
-1. **🤖 True AI Agent**: Not just an automation script, but an intelligent system that understands natural language and performs risk assessment
-2. **🔒 Multi-layer Security**: Traditional rules + AI risk assessment + ML-based detection (optional) + on-chain freeze check
-3. **🚀 End-to-End Workflow**: Complete loop from natural language request to on-chain execution
-4. **📊 Verifiable AI Decisions**: AI risk assessment is transparent and explainable, providing risk reasons and suggestions
-5. **🔄 Graceful Degradation**: Automatically uses fallback parser when AI API is unavailable, ensuring system availability
-6. **🌐 Multi-AI Provider Support**: Supports DeepSeek, Gemini, OpenAI, Claude, Ollama and other providers
-7. **🔐 Security First**: Strict environment variable management, sensitive information protection, multisig freeze mechanism
