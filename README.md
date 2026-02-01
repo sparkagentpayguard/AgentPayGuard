@@ -1,38 +1,40 @@
-# AgentPayGuard
+# 🛡️ AgentPayGuard
 
-**Agentic payments with verifiable identity and programmable governance—and a human override.**
+**🤖 Agentic payments with verifiable identity and programmable governance—and a human override.**
 
-[**中文**](README_zh.md)
+[**中文**](README_zh.md) | [**English**](README.md)
 
 ---
 
 # Part I — For Judges
 
-## Problem Statement
+## 🎯 Problem Statement
 
 When AI Agents start making real payments, three critical questions emerge:
 
-1. **Who is spending (Identity)**: Service providers and users need to verify which Agent is making the payment, on whose behalf, and under what authorization.
-2. **Can we stop it when needed (Control)**: When Agents are subject to prompt injection, key/session leaks, or abnormal behavior, payments must be forcibly intercepted before execution or at execution boundaries.
-3. **Can we explain it afterward (Audit)**: We need traceable audit trails to answer: why was this payment made, to whom, who approved it, and were the rules followed?
+1. **🔐 Who is spending (Identity)**: Service providers and users need to verify which Agent is making the payment, on whose behalf, and under what authorization.
+2. **🛑 Can we stop it when needed (Control)**: When Agents are subject to prompt injection, key/session leaks, or abnormal behavior, payments must be forcibly intercepted before execution or at execution boundaries.
+3. **📊 Can we explain it afterward (Audit)**: We need traceable audit trails to answer: why was this payment made, to whom, who approved it, and were the rules followed?
 
 Kite's whitepaper describes the bottleneck holding back the agent economy: *autonomous agents remain constrained by infrastructure designed for humans*—grant them financial authority and risk unbounded losses, or require manual authorization and eliminate autonomy. The answer is **trustless payment infrastructure** where agents act as **first-class economic actors** under **programmable constraints** and **immutable audit trails**, with **mathematically enforced safety, not assumed trust** ([*From Human-Centric to Agent-Native*](https://gokite.ai/kite-whitepaper)).
 
 ---
 
-## Solution
+## ✨ Solution
 
 AgentPayGuard is one concrete implementation on Kite. We focus on three questions: *who* is spending (identity), *whether* we can stop it when needed (policy + freeze), and *how* we explain it afterward (audit trail). The loop is: natural-language payment requests → AI intent parsing and risk assessment → **programmable rules** and on-chain freeze checks → stablecoin transfer on Kite. Rules are enforced before execution; a 2/3 multisig provides a human override for freeze/unfreeze. The pipeline is model-agnostic—optional local or edge-deployed LLMs can later deliver sub-second, privacy-preserving decisions without changing the policy layer.
 
-### Core Features
+### 🎯 Core Features
 
 Aligned with Kite's **SPACE** direction (stablecoin-native, programmable constraints, agent-first auth, compliance-ready audit, economically viable micropayments):
 
-- **Natural-language payment:** The Agent accepts instructions like *"Pay 50 USDC to 0x... for server hosting"*, extracts recipient, amount, currency, and purpose, then runs policy and risk checks before any chain call.
-- **Programmable constraints:** Allowlist, per-transfer and daily limits, on-chain freeze (multisig-controlled), AI risk score/level, and optional ML-based risk detection—all enforced before execution, not by trust.
-- **Stablecoin on Kite:** EOA and AA (Kite Account Abstraction) paths; evidence on Kite testnet for both.
-- **Human override:** A 2/3 multisig (SimpleMultiSig) controls freeze/unfreeze. When an address is frozen, the Agent cannot send funds to it; unfreeze is a multisig execution.
-- **Audit trail:** Every payment is checkable on-chain; policy and risk outcomes are explicit in logs and API responses.
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **💬 Natural-language payment** | The Agent accepts instructions like *"Pay 50 USDC to 0x... for server hosting"*, extracts recipient, amount, currency, and purpose, then runs policy and risk checks before any chain call. | ✅ Implemented |
+| **🔒 Programmable constraints** | Allowlist, per-transfer and daily limits, on-chain freeze (multisig-controlled), AI risk score/level, and optional ML-based risk detection—all enforced before execution, not by trust. | ✅ Implemented |
+| **💰 Stablecoin on Kite** | EOA and AA (Kite Account Abstraction) paths; evidence on Kite testnet for both. | ✅ Implemented |
+| **👥 Human override** | A 2/3 multisig (SimpleMultiSig) controls freeze/unfreeze. When an address is frozen, the Agent cannot send funds to it; unfreeze is a multisig execution. | ✅ Implemented |
+| **📋 Audit trail** | Every payment is checkable on-chain; policy and risk outcomes are explicit in logs and API responses. | ✅ Implemented |
 
 ---
 
@@ -65,58 +67,70 @@ Aligned with Kite's **SPACE** direction (stablecoin-native, programmable constra
    - **What**: Clean separation between AI inference layer and policy enforcement layer
    - **Benefit**: Can migrate to sub-second, privacy-preserving local models later while maintaining same security guarantees
 
-### Technical Architecture
+### 🏗️ Technical Architecture
 
+```mermaid
+graph TB
+    User[👤 User Request<br/>Natural Language]
+    API[🌐 API Server<br/>/api/ai-pay, /api/pay]
+    Identity[🔐 Agent Identity<br/>KitePass / AA SDK]
+    AI[🤖 AI Intent Parser<br/>Parse + Risk Assessment]
+    Policy[🛡️ Policy Engine<br/>Rules + AI Risk + ML + Freeze]
+    Pay[💸 Payment Execution<br/>EOA or AA Path]
+    Chain[⛓️ Kite Chain<br/>Stablecoin Transfer]
+    
+    Multisig[👥 SimpleMultiSig<br/>2/3 Multisig]
+    Freeze[🚫 Freeze Contract<br/>Emergency Override]
+    
+    User -->|Natural Language| API
+    API --> Identity
+    Identity --> AI
+    AI -->|Intent + Risk Score| Policy
+    Policy -->|Policy Check Pass| Pay
+    Pay -->|On-chain Transfer| Chain
+    
+    Multisig -.->|Emergency Freeze| Freeze
+    Freeze -.->|Block Payments| Policy
+    
+    style User fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style AI fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style Policy fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style Pay fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style Chain fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style Multisig fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style Freeze fill:#ffebee,stroke:#c62828,stroke-width:2px
 ```
-User Request (Natural Language)
-         │
-         ▼
-    AI Intent Parser
-    (Parse + Risk Assessment)
-         │
-         ▼
-    Policy Engine
-    (Rules + AI Risk + ML + Freeze Check)
-         │
-         ▼
-    Payment Execution
-    (EOA or AA Path)
-         │
-         ▼
-    Kite Chain
-    (Stablecoin Transfer + Audit Trail)
 
-Emergency Override:
-  SimpleMultiSig (2/3) → Freeze Contract
-  - Multisig: 0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA
-  - Freeze Contract: 0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719
-```
+**🔗 Contract Addresses:**
+- **Multisig**: `0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA`
+- **Freeze Contract**: `0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719`
+- **Freeze Tx**: [View on KiteScan](https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c)
 
-### Core Modules
+### 📦 Core Modules
 
-**Core modules** (essential for basic functionality):
+#### 🔴 Core Modules (Essential)
 
-| Module | File | Function |
-|--------|------|----------|
-| **AI Intent Parser** | [`src/lib/ai-intent.ts`](src/lib/ai-intent.ts) | Natural language parsing, risk assessment, multi-AI provider support |
-| **Policy Engine** | [`src/lib/policy.ts`](src/lib/policy.ts) | Allowlist/limits/AI risk assessment/on-chain freeze check |
-| **Payment Execution** | [`src/lib/run-pay.ts`](src/lib/run-pay.ts) | Unified interface for EOA/AA payment paths |
-| **ERC20 Transfer** | [`src/lib/erc20.ts`](src/lib/erc20.ts) | Direct EOA transfer |
-| **AA Payment** | [`src/lib/kite-aa.ts`](src/lib/kite-aa.ts) | Kite AA SDK integration |
-| **API Service** | [`src/server.ts`](src/server.ts) | HTTP API (for frontend calls) |
+| Module | File | Function | Status |
+|--------|------|----------|--------|
+| **🤖 AI Intent Parser** | [`src/lib/ai-intent.ts`](src/lib/ai-intent.ts) | Natural language parsing, risk assessment, multi-AI provider support | ✅ |
+| **🛡️ Policy Engine** | [`src/lib/policy.ts`](src/lib/policy.ts) | Allowlist/limits/AI risk assessment/on-chain freeze check | ✅ |
+| **💸 Payment Execution** | [`src/lib/run-pay.ts`](src/lib/run-pay.ts) | Unified interface for EOA/AA payment paths | ✅ |
+| **🔗 ERC20 Transfer** | [`src/lib/erc20.ts`](src/lib/erc20.ts) | Direct EOA transfer | ✅ |
+| **⚡ AA Payment** | [`src/lib/kite-aa.ts`](src/lib/kite-aa.ts) | Kite AA SDK integration | ✅ |
+| **🌐 API Service** | [`src/server.ts`](src/server.ts) | HTTP API (for frontend calls) | ✅ |
 
-**Supporting modules** (enhancements and optimizations):
+#### 🟡 Supporting Modules (Enhancements)
 
-| Module | File | Function |
-|--------|------|----------|
-| **Config Management** | [`src/lib/config.ts`](src/lib/config.ts) | Environment variable loading and validation |
-| **State Management** | [`src/lib/state.ts`](src/lib/state.ts) | Local payment records and limit tracking |
-| **Prompt Injection Protection** | [`src/lib/prompt-injection.ts`](src/lib/prompt-injection.ts) | Input validation and injection detection |
-| **Retry Mechanism** | [`src/lib/retry.ts`](src/lib/retry.ts) | Exponential backoff retry logic |
-| **Batch AI Processing** | [`src/lib/batch-ai.ts`](src/lib/batch-ai.ts) | Batch AI request processing (performance optimization) |
-| **Async Chain Queries** | [`src/lib/async-chain.ts`](src/lib/async-chain.ts) | Parallel chain query optimization |
-| **Performance Metrics** | [`src/lib/metrics.ts`](src/lib/metrics.ts) | Performance monitoring and statistics |
-| **Request Queue** | [`src/lib/request-queue.ts`](src/lib/request-queue.ts) | Request queue and batch processing |
+| Module | File | Function | Status |
+|--------|------|----------|--------|
+| **⚙️ Config Management** | [`src/lib/config.ts`](src/lib/config.ts) | Environment variable loading and validation | ✅ |
+| **💾 State Management** | [`src/lib/state.ts`](src/lib/state.ts) | Local payment records and limit tracking | ✅ |
+| **🔒 Prompt Injection Protection** | [`src/lib/prompt-injection.ts`](src/lib/prompt-injection.ts) | Input validation and injection detection | ✅ |
+| **🔄 Retry Mechanism** | [`src/lib/retry.ts`](src/lib/retry.ts) | Exponential backoff retry logic | ✅ |
+| **📦 Batch AI Processing** | [`src/lib/batch-ai.ts`](src/lib/batch-ai.ts) | Batch AI request processing (performance optimization) | ✅ |
+| **⚡ Async Chain Queries** | [`src/lib/async-chain.ts`](src/lib/async-chain.ts) | Parallel chain query optimization | ✅ |
+| **📊 Performance Metrics** | [`src/lib/metrics.ts`](src/lib/metrics.ts) | Performance monitoring and statistics | ✅ |
+| **📋 Request Queue** | [`src/lib/request-queue.ts`](src/lib/request-queue.ts) | Request queue and batch processing | ✅ |
 
 **Optional ML modules** (MVP/Simplified implementation, see [Machine Learning Features](#machine-learning-features-optional-mvpsimplified-implementation)):
 
@@ -131,29 +145,31 @@ Emergency Override:
 
 ---
 
-## Track Alignment
+## ✅ Track Alignment
 
-| Requirement | How we meet it | Evidence |
-|-------------|----------------|----------|
-| **Chain payment** | Stablecoin transfer on Kite testnet (EOA + AA) | EOA: [Kite Tx](https://testnet.kitescan.ai/tx/0x8ec4f4a44fb7ef878db9fc549ff81294982224648f3cc21ecad04764dcbd75db) · AA: [Kite Tx](https://testnet.kitescan.ai/tx/0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313) |
-| **Agent identity** | KitePass (Agent Passport) + Kite AA SDK | KitePass API Key (optional) or AA SDK Account Abstraction (no API key required); payment requests bound to Agent identity |
-| **Permission control** | Allowlist, limits, on-chain freeze check before every payment | Multisig: `0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA` · Freeze Tx: [Kite Tx](https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c) |
-| **Reproducibility** | One-command run; README and scripts for clone → run | Part II below; `pnpm demo:pay` / `pnpm demo:ai-agent "..."` |
+| Requirement | How we meet it | Evidence | Status |
+|-------------|----------------|----------|--------|
+| **⛓️ Chain payment** | Stablecoin transfer on Kite testnet (EOA + AA) | EOA: [Kite Tx](https://testnet.kitescan.ai/tx/0x8ec4f4a44fb7ef878db9fc549ff81294982224648f3cc21ecad04764dcbd75db) · AA: [Kite Tx](https://testnet.kitescan.ai/tx/0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313) | ✅ |
+| **🔐 Agent identity** | KitePass (Agent Passport) + Kite AA SDK | KitePass API Key (optional) or AA SDK Account Abstraction (no API key required); payment requests bound to Agent identity | ✅ |
+| **🛡️ Permission control** | Allowlist, limits, on-chain freeze check before every payment | Multisig: `0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA` · Freeze Tx: [Kite Tx](https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c) | ✅ |
+| **🔄 Reproducibility** | One-command run; README and scripts for clone → run | Part II below; `pnpm demo:pay` / `pnpm demo:ai-agent "..."` | ✅ |
 
 ---
 
-## AI-Enhanced Policy
+## 🔒 AI-Enhanced Policy
 
-### Minimum Policy Set
+### 📋 Minimum Policy Set
 
-- **Recipient allowlist**: Only allow payments to pre-registered supplier/contract addresses
-- **Per-transfer limit**: Maximum `MAX_AMOUNT` per payment
-- **Period limit (optional)**: Daily total not exceeding `DAILY_LIMIT`
-- **Authorization validity (optional)**: Payment requests automatically expire after validity period
-- **AI risk assessment**: Risk score (0-100) based on payment purpose, amount, historical patterns
-- **AI risk threshold**: Configurable maximum risk score (default 70) and auto-reject risk levels (default ["high"])
-- **On-chain freeze check**: Real-time multisig freeze status check (strong dependency mode)
-- **ML-based risk detection** (optional): XGBoost model + Isolation Forest anomaly detection with 59-dimensional feature engineering
+| Policy Type | Description | Default Value | Status |
+|------------|-------------|---------------|--------|
+| **📝 Recipient allowlist** | Only allow payments to pre-registered supplier/contract addresses | Configurable | ✅ |
+| **💰 Per-transfer limit** | Maximum `MAX_AMOUNT` per payment | Configurable | ✅ |
+| **📅 Period limit** | Daily total not exceeding `DAILY_LIMIT` | Configurable | ✅ |
+| **⏰ Authorization validity** | Payment requests automatically expire after validity period | Optional | ✅ |
+| **🤖 AI risk assessment** | Risk score (0-100) based on payment purpose, amount, historical patterns | 0-100 score | ✅ |
+| **🚨 AI risk threshold** | Configurable maximum risk score and auto-reject risk levels | Default: 70, ["high"] | ✅ |
+| **🚫 On-chain freeze check** | Real-time multisig freeze status check (strong dependency mode) | Always checked | ✅ |
+| **🧠 ML-based risk detection** | XGBoost model + Isolation Forest anomaly detection with 59-dimensional feature engineering | Optional (MVP) | ⚠️ |
 
 ### AI Features
 
@@ -212,18 +228,18 @@ The system includes an ML module for advanced risk detection. **Note: Current im
 - **System information**: Uptime, memory usage, Node.js version
 
 
-### Supported AI Providers
+### 🌐 Supported AI Providers
 
 The system supports multiple AI providers, automatically selecting by priority:
 
-| Provider | Config Variable | Default Model | Features |
-|----------|----------------|---------------|----------|
-| **DeepSeek** | `DEEPSEEK_API_KEY` | `deepseek-chat` | Free tier, recommended |
-| **Google Gemini** | `GEMINI_API_KEY` | `gemini-1.5-flash` | Free tier (Flash version is faster) |
-| **OpenAI** | `OPENAI_API_KEY` | `gpt-4o-mini` | Paid |
-| **Claude** | `CLAUDE_API_KEY` | `claude-3-haiku` | Paid |
-| **Ollama** | `OLLAMA_URL` | `llama3.2` | Local, free |
-| **LM Studio** | `LMSTUDIO_URL` | `local-model` | Local, free |
+| Provider | Config Variable | Default Model | Features | Status |
+|----------|----------------|---------------|----------|--------|
+| **🟢 DeepSeek** | `DEEPSEEK_API_KEY` | `deepseek-chat` | Free tier, recommended | ✅ |
+| **🔵 Google Gemini** | `GEMINI_API_KEY` | `gemini-1.5-flash` | Free tier (Flash version is faster) | ✅ |
+| **⚪ OpenAI** | `OPENAI_API_KEY` | `gpt-4o-mini` | Paid | ✅ |
+| **🟣 Claude** | `CLAUDE_API_KEY` | `claude-3-haiku` | Paid | ✅ |
+| **🟠 Ollama** | `OLLAMA_URL` | `llama3.2` | Local, free | ✅ |
+| **🟡 LM Studio** | `LMSTUDIO_URL` | `local-model` | Local, free | ✅ |
 
 Configuration example (see [`.env.example`](.env.example)):
 ```bash
@@ -350,15 +366,17 @@ Details: [Kite Whitepaper](https://gokite.ai/kite-whitepaper); full text in `doc
 
 ---
 
-## Project Highlights
+## 🎯 Project Highlights
 
-1. **🤖 True AI Agent**: Not just an automation script, but an intelligent system that understands natural language and performs risk assessment
-2. **🔒 Multi-layer Security**: Traditional rules + AI risk assessment + ML-based detection (optional) + on-chain freeze check
-3. **🚀 End-to-End Workflow**: Complete loop from natural language request to on-chain execution
-4. **📊 Verifiable AI Decisions**: AI risk assessment is transparent and explainable, providing risk reasons and suggestions
-5. **🔄 Graceful Degradation**: Automatically uses fallback parser when AI API is unavailable, ensuring system availability
-6. **🌐 Multi-AI Provider Support**: Supports DeepSeek, Gemini, OpenAI, Claude, Ollama and other providers
-7. **🔐 Security First**: Strict environment variable management, sensitive information protection, multisig freeze mechanism
+| # | Feature | Description | Impact |
+|---|---------|-------------|--------|
+| **1** | **🤖 True AI Agent** | Not just an automation script, but an intelligent system that understands natural language and performs risk assessment | High |
+| **2** | **🔒 Multi-layer Security** | Traditional rules + AI risk assessment + ML-based detection (optional) + on-chain freeze check | Critical |
+| **3** | **🚀 End-to-End Workflow** | Complete loop from natural language request to on-chain execution | High |
+| **4** | **📊 Verifiable AI Decisions** | AI risk assessment is transparent and explainable, providing risk reasons and suggestions | Medium |
+| **5** | **🔄 Graceful Degradation** | Automatically uses fallback parser when AI API is unavailable, ensuring system availability | High |
+| **6** | **🌐 Multi-AI Provider Support** | Supports DeepSeek, Gemini, OpenAI, Claude, Ollama and other providers | Medium |
+| **7** | **🔐 Security First** | Strict environment variable management, sensitive information protection, multisig freeze mechanism | Critical |
 
 ---
 
