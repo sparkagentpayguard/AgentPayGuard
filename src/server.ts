@@ -54,6 +54,18 @@ async function runAIPayPipeline(request: string, executeOnchain: boolean, paymen
     return { ok: false, error: 'ai_disabled', message: 'AI features disabled. Set ENABLE_AI_INTENT=1 and configure API key.' };
   }
 
+  // 获取 Agent 身份（满足规则要求：使用 Kite Agent 或身份体系）
+  const { getKiteAgentIdentity } = await import('./lib/kite-agent-identity.js');
+  const agentIdentity = getKiteAgentIdentity();
+  if (agentIdentity.isInitialized()) {
+    const identity = agentIdentity.getAgentIdentity();
+    if (identity) {
+      console.log(`[ai-pipeline] Agent 身份: ${identity.agentName} (${identity.verified ? '已验证' : '未验证'})`);
+    }
+  } else {
+    console.warn('[ai-pipeline] Agent 身份未初始化，建议设置 KITE_API_KEY 以使用 KitePass 身份');
+  }
+
   const provider = new ethers.JsonRpcProvider(env.RPC_URL, env.CHAIN_ID);
   const tokenDecimalsForContext = env.TOKEN_DECIMALS ?? await getTokenDecimals(provider, env.SETTLEMENT_TOKEN_ADDRESS);
 
@@ -75,6 +87,20 @@ async function runAIPayPipeline(request: string, executeOnchain: boolean, paymen
 
   if (!intent.parsedSuccessfully) {
     return { ok: false, error: 'parse_failed', message: 'Failed to parse payment intent', intent: intent as unknown as Record<string, unknown> };
+  }
+
+  // 将支付请求与 Agent 身份绑定（满足规则要求）
+  if (agentIdentity.isInitialized()) {
+    try {
+      const boundPayment = agentIdentity.bindPaymentToAgent({
+        recipient: intent.recipient !== 'unknown' ? intent.recipient : env.RECIPIENT,
+        amount: intent.amount,
+        purpose: intent.purpose
+      });
+      console.log(`[ai-pipeline] 支付请求已绑定到 Agent: ${boundPayment.agentName}`);
+    } catch (error) {
+      console.warn('[ai-pipeline] Agent 身份绑定失败:', error);
+    }
   }
 
   const finalRecipient = intent.recipient !== 'unknown' ? intent.recipient : env.RECIPIENT;

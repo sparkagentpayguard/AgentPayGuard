@@ -33,7 +33,7 @@ Aligned with Kite’s **SPACE** direction (stablecoin-native, programmable const
 | Requirement | How we meet it | Evidence |
 |-------------|----------------|----------|
 | **Chain payment** | Stablecoin transfer on Kite testnet (EOA + AA) | EOA: [Kite Tx](https://testnet.kitescan.ai/tx/0x8ec4f4a44fb7ef878db9fc549ff81294982224648f3cc21ecad04764dcbd75db) · AA: [Kite Tx](https://testnet.kitescan.ai/tx/0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313) |
-| **Agent identity** | Kite AA SDK; UserOp execution and settlement | AA Tx above; [Account Abstraction SDK](https://docs.gokite.ai/kite-chain/5-advanced/account-abstraction-sdk) |
+| **Agent identity** | KitePass (Agent Passport) + Kite AA SDK | KitePass API Key 身份验证；AA SDK 账户抽象；支付请求与 Agent 身份绑定 |
 | **Permission control** | Allowlist, limits, on-chain freeze check before every payment | Multisig: `0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA` · Freeze Tx: [Kite Tx](https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c) |
 | **Reproducibility** | One-command run; README and scripts for clone → run | Part II below; `pnpm demo:pay` / `pnpm demo:ai-agent "..."` |
 
@@ -163,4 +163,20 @@ Optional: [Chainlink env-enc](https://www.npmjs.com/package/@chainlink/env-enc) 
 ## Kite & submission
 
 - **Kite testnet:** RPC `https://rpc-testnet.gokite.ai/` · Explorer: [testnet.kitescan.ai](https://testnet.kitescan.ai/)
+
+### Agent Identity (KitePass)
+
+AgentPayGuard integrates **KitePass (Agent Passport)** identity system to meet track requirements:
+
+- **KitePass API Key**: Set `KITE_API_KEY` in `.env` to use official KitePass identity (recommended)
+- **Fallback**: If `KITE_API_KEY` is not set, uses EOA address from `PRIVATE_KEY` as agent identifier
+- **Payment Binding**: All payment requests are bound to agent identity for audit trail
+
+**Getting KitePass API Key:**
+1. Visit [Kite App](https://app.gokite.ai/)
+2. Create or access your KitePass
+3. Copy the API Key
+4. Set `KITE_API_KEY=api_key_xxx` in `.env`
+
+The agent identity is automatically initialized on startup and bound to every payment request.
 - **Hackathon:** [SPARK AI Hackathon](https://github.com/CasualHackathon/SPARK-AI-Hackathon)

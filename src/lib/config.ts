@@ -69,7 +69,11 @@ export const EnvSchema = z.object({
 
   // ML Features (机器学习特征，冷启动策略)
   ENABLE_ML_FEATURES: boolFromEnv(false), // 启用ML特征工程和异常检测
-  ML_DATA_PATH: z.string().optional().default('./data/training') // ML数据存储路径
+  ML_DATA_PATH: z.string().optional().default('./data/training'), // ML数据存储路径
+
+  // Kite Agent Identity (KitePass / Agent Passport)
+  KITE_API_KEY: z.string().optional(), // KitePass API Key（从 https://app.gokite.ai/ 获取）
+  KITE_AGENT_NAME: z.string().optional().default('AgentPayGuard') // Agent 名称
 });
 
 export type Env = z.infer<typeof EnvSchema>;

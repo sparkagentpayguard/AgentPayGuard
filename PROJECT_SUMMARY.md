@@ -411,7 +411,7 @@ ENABLE_AI_INTENT=0
 
 | Kite 能力 | 本项目用法（MVP） | 证据/链接 |
 |-----------|-------------------|-----------|
-| Agent 身份系统（Agent / Passport） | 创建/加载 Agent 身份，并把支付请求与身份绑定 | 按官方文档集成 |
+| Agent 身份系统（Agent / Passport） | ✅ KitePass API Key 身份验证；支付请求与 Agent 身份绑定 | `src/lib/kite-agent-identity.ts`；支持 KITE_API_KEY 或 EOA 地址作为身份标识 |
 | 账户抽象（AA SDK） | 为 Agent 创建/加载智能账户，让权限/执行更适合自动化场景 | https://docs.gokite.ai/kite-chain/5-advanced/account-abstraction-sdk |
 | 多签钱包（Multisig） | 自研 SimpleMultiSig（2/3 多签，OpenZeppelin v5）作为安全阀 | 多签地址 + 冻结合约 + 冻结 Tx（见上方） |
 | 稳定币支付（Stablecoin Payment） | 执行 1 笔稳定币链上转账（测试网） | EOA Tx + AA Tx（见上方） |

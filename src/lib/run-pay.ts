@@ -8,6 +8,7 @@ import { getTokenDecimals, transferErc20 } from './erc20.js';
 import { parseAllowlist, evaluatePolicy } from './policy.js';
 import { addSpentToday, readSpentToday } from './state.js';
 import { sendErc20ViaAA } from './kite-aa.js';
+import { getKiteAgentIdentity } from './kite-agent-identity.js';
 
 const FREEZE_CONTRACT = '0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719';
 
@@ -29,6 +30,17 @@ export async function runPay(overrides: RunPayOverrides = {}): Promise<RunPayRes
   const paymentMode = overrides.paymentMode ?? env.PAYMENT_MODE;
   const executeOnchain = overrides.executeOnchain !== undefined ? overrides.executeOnchain : env.EXECUTE_ONCHAIN;
 
+  // 获取 Agent 身份（满足规则要求：使用 Kite Agent 或身份体系）
+  const agentIdentity = getKiteAgentIdentity();
+  if (!agentIdentity.isInitialized()) {
+    console.warn('[runPay] Agent 身份未初始化，建议设置 KITE_API_KEY 以使用 KitePass 身份');
+  } else {
+    const identity = agentIdentity.getAgentIdentity();
+    if (identity) {
+      console.log(`[runPay] Agent 身份: ${identity.agentName} (${identity.agentId.substring(0, 20)}...)`);
+    }
+  }
+
   const provider = new ethers.JsonRpcProvider(env.RPC_URL, env.CHAIN_ID);
   if ((executeOnchain || paymentMode === 'aa') && !env.PRIVATE_KEY) {
     return { ok: false, code: 'MISSING_PRIVATE_KEY', message: '需要签名私钥：请在 .env 中配置 PRIVATE_KEY' };
@@ -46,6 +58,21 @@ export async function runPay(overrides: RunPayOverrides = {}): Promise<RunPayRes
   };
 
   const spentToday = await readSpentToday(env.STATE_PATH);
+  
+  // 将支付请求与 Agent 身份绑定（满足规则要求）
+  if (agentIdentity.isInitialized()) {
+    try {
+      const boundPayment = agentIdentity.bindPaymentToAgent({
+        recipient,
+        amount: amountStr,
+        purpose: 'Payment via AgentPayGuard'
+      });
+      console.log(`[runPay] 支付请求已绑定到 Agent: ${boundPayment.agentName}`);
+    } catch (error) {
+      console.warn('[runPay] Agent 身份绑定失败:', error);
+    }
+  }
+  
   const decision = await evaluatePolicy({
     policy,
     recipient,
