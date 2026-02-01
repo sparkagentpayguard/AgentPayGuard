@@ -169,7 +169,7 @@ Natural language request → AI intent parsing → Risk assessment → Policy ch
 
 ### Machine Learning Features (Optional, MVP/Simplified Implementation)
 
-The system includes an ML module for advanced risk detection. **Note: Current implementations are simplified MVP versions for demonstration purposes.** See [Advanced Features - Machine Learning Module](#advanced-features) for details.
+The system includes an ML module for advanced risk detection. **Note: Current implementations are simplified MVP versions for demonstration purposes.** See [Advanced Features - Machine Learning Module](#machine-learning-module-mvpsimplified-implementation) for details.
 
 ### Security Features
 
