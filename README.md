@@ -169,23 +169,7 @@ Natural language request → AI intent parsing → Risk assessment → Policy ch
 
 ### Machine Learning Features (Optional, MVP/Simplified Implementation)
 
-The system includes an ML module for advanced risk detection. **Note: Current implementations are simplified MVP versions for demonstration purposes.**
-
-#### 🧠 ML-Based Risk Detection (MVP)
-- **59-dimensional feature engineering**: Time windows (1h/24h/7d/30d), behavior sequences, address associations, user profiles, on-chain features
-- **XGBoost model**: Supervised risk prediction model (**simplified MVP implementation**, production-ready version recommended)
-- **Isolation Forest**: Unsupervised anomaly detection for cold-start scenarios (**simplified MVP implementation**)
-- **Automatic data collection**: Collects transaction data for model training during production use
-- **Feature caching**: Precomputed features for common recipients (1h TTL) and users (30min TTL)
-
-**Configuration**:
-```bash
-# Enable ML features
-ENABLE_ML_FEATURES=1
-ML_DATA_PATH=./data/training  # Data storage path
-```
-
-**⚠️ Important**: Current ML implementations are **simplified MVP versions** suitable for demonstration and proof-of-concept. For production use, we recommend training models with Python XGBoost/scikit-learn and exporting to ONNX/JSON format for Node.js inference. See [`docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md`](docs/guides/AI_RISK_CONTROL_ALGORITHM_ANALYSIS.md) for production-ready implementation details.
+The system includes an ML module for advanced risk detection. **Note: Current implementations are simplified MVP versions for demonstration purposes.** See [Advanced Features - Machine Learning Module](#advanced-features) for details.
 
 ### Security Features
 
@@ -254,7 +238,30 @@ AI_MODEL=deepseek-chat
 
 ## Advanced Features
 
-See [Machine Learning Features](#machine-learning-features-optional-mvpsimplified-implementation) above for ML module details.
+### Machine Learning Module (MVP/Simplified Implementation)
+
+The project includes an ML module for advanced risk detection (enabled with `ENABLE_ML_FEATURES=1`). **⚠️ Note: Current implementations are simplified MVP versions for demonstration purposes.**
+
+#### 🧠 ML-Based Risk Detection (MVP)
+- **59-dimensional feature engineering**: Time windows (1h/24h/7d/30d), behavior sequences, address associations, user profiles, on-chain features
+- **XGBoost model**: Supervised risk prediction model (**simplified MVP implementation**, production-ready version recommended)
+- **Isolation Forest**: Unsupervised anomaly detection for cold-start scenarios (**simplified MVP implementation**)
+- **Automatic data collection**: Collects transaction data for model training during production use
+- **Feature caching**: Precomputed features for common recipients (1h TTL) and users (30min TTL)
+
+**Configuration**:
+```bash
+# Enable ML features
+ENABLE_ML_FEATURES=1
+ML_DATA_PATH=./data/training  # Data storage path
+```
+
+**Implementation Status**: See [`docs/ALGORITHM_IMPLEMENTATION_STATUS.md`](docs/ALGORITHM_IMPLEMENTATION_STATUS.md) for detailed algorithm completion analysis.
+
+**⚠️ Important**: Current ML implementations are **simplified MVP versions** suitable for demonstration and proof-of-concept. For production deployment, we recommend:
+1. Training models with Python (XGBoost/scikit-learn)
+2. Exporting models to ONNX or JSON format
+3. Using ONNX Runtime or custom inference engine in Node.js
 
 ### Security & Reliability
 
