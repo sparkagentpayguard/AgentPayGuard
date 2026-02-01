@@ -338,13 +338,29 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      // Build chat orchestrator
+      // Build chat orchestrator / 构建聊天编排器
       const openaiClient = cachedAIParser.getOpenAIClient();
-      if (!openaiClient || !cachedAIParser.isEnabled()) {
-        // AI disabled — use fallback keyword classification only
+      const aiEnabled = cachedAIParser.isEnabled();
+      const providerInfo = cachedAIParser.getProviderInfo();
+      
+      console.log(`[api/ai-chat] AI status check: enabled=${aiEnabled}, provider=${providerInfo.provider}, model=${providerInfo.model}, hasClient=${!!openaiClient}`);
+      
+      if (!openaiClient || !aiEnabled) {
+        // AI disabled — use fallback keyword classification only / AI未启用 - 仅使用回退关键词分类
+        console.warn('[api/ai-chat] AI not enabled or client not available, using fallback');
+        console.warn(`[api/ai-chat] Diagnostic: ENABLE_AI_INTENT=${env.ENABLE_AI_INTENT}, provider=${providerInfo.provider}, hasClient=${!!openaiClient}`);
         const fallback = new AIChatOrchestrator(null as unknown as import('openai').default, '');
         const cls = fallback.fallbackClassify(message);
-        send(res, 200, { text: cls.response || 'AI is not configured. Please set ENABLE_AI_INTENT=1 and an API key.', action: cls.action });
+        send(res, 200, { 
+          text: cls.response || 'AI is not configured. Please set ENABLE_AI_INTENT=1 and an API key.', 
+          action: cls.action,
+          fallback: true,
+          diagnostic: {
+            aiEnabled: false,
+            provider: providerInfo.provider,
+            reason: !openaiClient ? 'No OpenAI client' : 'AI disabled'
+          }
+        });
         return;
       }
 

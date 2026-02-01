@@ -54,41 +54,55 @@ export class AIChatOrchestrator {
     this.responseCache = new SimpleCache(300);
   }
 
+  /**
+   * Classify user message and generate response / 分类用户消息并生成响应
+   * 
+   * @param {string} message - User message / 用户消息
+   * @param {ChatHistoryMessage[]} history - Conversation history / 对话历史
+   * @returns {Promise<ChatClassification>} Classification result / 分类结果
+   */
   async classify(message: string, history: ChatHistoryMessage[]): Promise<ChatClassification> {
-    // 验证和清理输入
+    console.log(`[AIChatOrchestrator] Classifying message: "${message.substring(0, 50)}${message.length > 50 ? '...' : ''}"`);
+    
+    // Step 1: Validate and sanitize input / 步骤1：验证和清理输入
     let sanitizedMessage: string;
     try {
       sanitizedMessage = validateAndSanitizeInput(message, {
         maxLength: 1000,
-        allowInjection: false
+        allowInjection: false // Strict mode: reject injection attempts / 严格模式：拒绝注入尝试
       });
+      console.log('[AIChatOrchestrator] Input validation passed');
     } catch (error) {
-      console.error('[AIChatOrchestrator] Input validation failed:', error);
-      // 如果输入验证失败，使用回退分类器
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error('[AIChatOrchestrator] Input validation failed:', err.message);
+      console.warn('[AIChatOrchestrator] Using fallback due to input validation failure');
+      // If input validation fails, use fallback classifier / 如果输入验证失败，使用回退分类器
       return this.fallbackClassify(message);
     }
 
-    // 检查缓存（仅对无历史消息的简单请求缓存）
+    // Step 2: Check cache (only for simple requests without history) / 步骤2：检查缓存（仅对无历史消息的简单请求）
     if (history.length === 0) {
       const cacheKey = hashString(`chat:${sanitizedMessage}`);
       const cached = this.responseCache.get(cacheKey);
       if (cached) {
-        console.log('[AIChatOrchestrator] Cache hit');
+        console.log('[AIChatOrchestrator] Cache hit - returning cached result');
         return cached;
       }
     }
 
+    // Step 3: Call AI API / 步骤3：调用AI API
     try {
-      // 清理历史消息中的输入
+      // Sanitize history messages / 清理历史消息中的输入
       const sanitizedHistory = history.slice(-10).map(h => ({
         role: h.role as 'user' | 'assistant',
         content: h.role === 'user' 
-          ? validateAndSanitizeInput(h.content, { maxLength: 1000, allowInjection: true }) // 历史消息允许注入（仅记录）
+          ? validateAndSanitizeInput(h.content, { maxLength: 1000, allowInjection: true }) // History allows injection (for logging only) / 历史消息允许注入（仅记录）
           : h.content,
       }));
 
-      // 动态生成系统提示词（基于当前功能状态）
+      // Generate dynamic system prompt (based on current feature state) / 动态生成系统提示词（基于当前功能状态）
       const systemPrompt = getSystemPrompt();
+      console.log(`[AIChatOrchestrator] System prompt length: ${systemPrompt.length} chars`);
       
       const messages: OpenAI.ChatCompletionMessageParam[] = [
         { role: 'system', content: systemPrompt },
@@ -96,14 +110,16 @@ export class AIChatOrchestrator {
         { role: 'user', content: sanitizedMessage },
       ];
 
-      // 优化参数：降低 temperature，限制 max_tokens，设置超时
-      const temperature = this.env.AI_TEMPERATURE ?? 0.1; // 默认 0.1（更快更确定）
-      const maxTokens = this.env.AI_MAX_TOKENS; // 可选限制输出长度
-      const timeout = this.env.AI_TIMEOUT_MS ?? 30000; // 默认 30 秒超时
+      // Optimize parameters: lower temperature, limit max_tokens, set timeout / 优化参数：降低 temperature，限制 max_tokens，设置超时
+      const temperature = this.env.AI_TEMPERATURE ?? 0.1; // Default 0.1 (faster and more deterministic) / 默认 0.1（更快更确定）
+      const maxTokens = this.env.AI_MAX_TOKENS; // Optional limit on output length / 可选限制输出长度
+      const timeout = this.env.AI_TIMEOUT_MS ?? 30000; // Default 30s timeout / 默认 30 秒超时
+
+      console.log(`[AIChatOrchestrator] Calling AI API: model=${this.model}, temperature=${temperature}, maxTokens=${maxTokens ?? 'unlimited'}, timeout=${timeout}ms`);
 
       const completion = await withRetry(
         async () => {
-          // 创建带超时的 Promise
+          // Create timeout-controlled Promise / 创建带超时的 Promise
           const completionPromise = this.openai.chat.completions.create({
             model: this.model,
             messages,
@@ -112,9 +128,9 @@ export class AIChatOrchestrator {
             response_format: { type: 'json_object' },
           });
 
-          // 添加超时控制
+          // Add timeout control / 添加超时控制
           const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('AI API timeout')), timeout);
+            setTimeout(() => reject(new Error(`AI API timeout after ${timeout}ms`)), timeout);
           });
 
           return await Promise.race([completionPromise, timeoutPromise]);
@@ -122,15 +138,29 @@ export class AIChatOrchestrator {
         {
           ...AI_API_RETRY_OPTIONS,
           onRetry: (attempt: number, error: Error) => {
-            console.warn(`[AIChatOrchestrator] Retry attempt ${attempt}: ${error.message}`);
+            console.warn(`[AIChatOrchestrator] Retry attempt ${attempt}/${AI_API_RETRY_OPTIONS.maxRetries ?? 3}: ${error.message}`);
           }
         }
       );
 
       const content = completion.choices[0]?.message?.content;
-      if (!content) throw new Error('Empty LLM response');
+      if (!content) {
+        console.error('[AIChatOrchestrator] Empty LLM response - no content in completion');
+        throw new Error('Empty LLM response');
+      }
 
-      const parsed = JSON.parse(content);
+      console.log(`[AIChatOrchestrator] Received AI response (${content.length} chars), parsing JSON...`);
+
+      // Parse JSON response / 解析JSON响应
+      let parsed: any;
+      try {
+        parsed = JSON.parse(content);
+      } catch (parseError) {
+        console.error('[AIChatOrchestrator] JSON parse failed:', parseError);
+        console.error('[AIChatOrchestrator] Response content:', content.substring(0, 200));
+        throw new Error(`Invalid JSON response: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+      }
+
       const result: ChatClassification = {
         action: this.normalizeAction(parsed.action),
         response: typeof parsed.response === 'string' ? parsed.response : '',
@@ -138,15 +168,37 @@ export class AIChatOrchestrator {
         queryAddress: parsed.queryAddress,
       };
 
-      // 缓存结果（仅对无历史消息的请求）
+      console.log(`[AIChatOrchestrator] Classification successful: action=${result.action}, responseLength=${result.response.length}`);
+
+      // Cache result (only for requests without history) / 缓存结果（仅对无历史消息的请求）
       if (history.length === 0) {
         const cacheKey = hashString(`chat:${sanitizedMessage}`);
         this.responseCache.set(cacheKey, result);
+        console.log('[AIChatOrchestrator] Result cached');
       }
 
       return result;
     } catch (err) {
-      console.error('[AIChatOrchestrator] classify failed after retries, using fallback:', err);
+      // Log detailed error information / 记录详细错误信息
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('[AIChatOrchestrator] classify failed after retries, using fallback');
+      console.error('[AIChatOrchestrator] Error type:', error.constructor.name);
+      console.error('[AIChatOrchestrator] Error message:', error.message);
+      console.error('[AIChatOrchestrator] Error stack:', error.stack);
+      
+      // Check specific error types / 检查特定错误类型
+      if (error.message.includes('timeout')) {
+        console.error('[AIChatOrchestrator] Reason: AI API timeout - consider increasing AI_TIMEOUT_MS or checking network');
+      } else if (error.message.includes('JSON')) {
+        console.error('[AIChatOrchestrator] Reason: Invalid JSON response from AI - AI may not be following response_format');
+      } else if (error.message.includes('401') || error.message.includes('unauthorized')) {
+        console.error('[AIChatOrchestrator] Reason: API key invalid or expired - check your API key configuration');
+      } else if (error.message.includes('429') || error.message.includes('rate limit')) {
+        console.error('[AIChatOrchestrator] Reason: Rate limit exceeded - wait and retry later');
+      } else if (error.message.includes('model')) {
+        console.error('[AIChatOrchestrator] Reason: Model not found or not available - check AI_MODEL configuration');
+      }
+      
       return this.fallbackClassify(message);
     }
   }
