@@ -374,6 +374,17 @@ Details: [Kite Whitepaper](https://gokite.ai/kite-whitepaper); full text in `doc
 
 ---
 
+## Project Highlights
+
+1. **🤖 True AI Agent**: Not just an automation script, but an intelligent system that understands natural language and performs risk assessment
+2. **🔒 Multi-layer Security**: Traditional rules + AI risk assessment + ML-based detection (optional) + on-chain freeze check
+3. **🚀 End-to-End Workflow**: Complete loop from natural language request to on-chain execution
+4. **📊 Verifiable AI Decisions**: AI risk assessment is transparent and explainable, providing risk reasons and suggestions
+5. **🔄 Graceful Degradation**: Automatically uses fallback parser when AI API is unavailable, ensuring system availability
+6. **🌐 Multi-AI Provider Support**: Supports DeepSeek, Gemini, OpenAI, Claude, Ollama and other providers
+7. **🔐 Security First**: Strict environment variable management, sensitive information protection, multisig freeze mechanism
+
+---
 
 ## References (Official)
 
@@ -634,18 +645,6 @@ In development environment, `/api` proxies to main repo API (3456). Open homepag
 
 ---
 
-## Latest Updates (2026-01-31)
-
-✅ **AI Agent Upgrade Complete**: Project upgraded from "secure payment system" to "intelligent AI Agent payment system"
-- Added: [`src/lib/ai-intent.ts`](src/lib/ai-intent.ts) - AI intent parsing and risk assessment module (269 lines)
-- Added: [`src/demo-ai-agent.ts`](src/demo-ai-agent.ts) - AI Agent demo script (208 lines)
-- Enhanced: [`src/lib/policy.ts`](src/lib/policy.ts) - AI-enhanced policy engine (expanded to 512 lines)
-- Updated: Complete AI workflow, supports natural language interface
-
-**Git Commit**: `39233da` - "feat: Add AI Agent capabilities to AgentPayGuard"
-
----
-
 ## Technical Stack
 
 ### Backend
@@ -689,14 +688,3 @@ In development environment, `/api` proxies to main repo API (3456). Open homepag
 | [`AGENT_WORKLOG.md`](docs/internal/AGENT_WORKLOG.md) | 📝 Work Log (Phase summaries) |
 | [`.clinerules`](.clinerules) | 📋 Agent Work Constraints + Security Policy (16 rules, .env protection) |
 
----
-
-## Project Highlights (For Judges)
-
-1. **🤖 True AI Agent**: Not just an automation script, but an intelligent system that understands natural language and performs risk assessment
-2. **🔒 Multi-layer Security**: Traditional rules + AI risk assessment + ML-based detection (optional) + on-chain freeze check
-3. **🚀 End-to-End Workflow**: Complete loop from natural language request to on-chain execution
-4. **📊 Verifiable AI Decisions**: AI risk assessment is transparent and explainable, providing risk reasons and suggestions
-5. **🔄 Graceful Degradation**: Automatically uses fallback parser when AI API is unavailable, ensuring system availability
-6. **🌐 Multi-AI Provider Support**: Supports DeepSeek, Gemini, OpenAI, Claude, Ollama and other providers
-7. **🔐 Security First**: Strict environment variable management, sensitive information protection, multisig freeze mechanism
