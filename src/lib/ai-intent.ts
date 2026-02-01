@@ -225,7 +225,7 @@ export class AIIntentParser {
       return this.fallbackParse(userMessage);
     }
 
-    // 2. 使用重试机制调用 AI API
+    // 2. Use retry mechanism to call AI API / 使用重试机制调用 AI API
     try {
       const systemPrompt = `You are a payment intent parser for a blockchain payment system.
 Extract structured information from user payment requests.
@@ -252,7 +252,7 @@ Example inputs:
 - "Send 0.5 ETH to my supplier"
 - "Transfer $50 to vendor for office supplies"`;
 
-      // 优化参数：降低 temperature，限制 max_tokens，设置超时
+      // Optimize parameters: lower temperature, limit max_tokens, set timeout / 优化参数：降低 temperature，限制 max_tokens，设置超时
       const temperature = this.env.AI_TEMPERATURE ?? 0.1;
       const maxTokens = this.env.AI_MAX_TOKENS;
       const timeout = this.env.AI_TIMEOUT_MS ?? 30000;
