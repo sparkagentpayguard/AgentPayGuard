@@ -168,7 +168,7 @@ ${capabilities.map((cap, i) => `${i + 1}. ${cap}`).join('\n')}
    - Traditional rules: Allowlist (whitelist), per-transfer limits, daily limits
    ${features.aiEnabled ? '- AI risk assessment: Score 0-100, levels (low/medium/high), with detailed reasons and recommendations' : ''}
    ${features.mlEnabled ? '- ML anomaly detection: 27+ dimensional feature engineering, statistical anomaly detection (cold-start compatible)' : ''}
-   - On-chain freeze check: Multisig-controlled freeze contract (2/3 multisig at 0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA)
+   - On-chain freeze check: Multisig-controlled freeze contract (2/3 multisig at 0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9)
    ${features.promptInjectionProtection ? '- Prompt injection protection: Automatic detection and sanitization of malicious inputs' : ''}
 
 3. **Payment Execution:**

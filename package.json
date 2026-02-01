@@ -9,6 +9,7 @@
     "demo:pay": "tsx src/demo-pay.ts",
     "demo:reject": "tsx src/demo-reject.ts",
     "demo:freeze": "tsx src/test-freeze.ts",
+    "demo:multisig-info": "tsx src/demo-multisig-info.ts",
     "demo:ai-agent": "tsx src/demo-ai-agent.ts",
     "retrain-models": "tsx src/scripts/retrain-models.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"

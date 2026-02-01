@@ -445,8 +445,8 @@ $env:KITE_API_KEY="api_key_xxx"; python python/kitepass_demo.py
 - **RPC**：`https://rpc-testnet.gokite.ai/`
 - **浏览器**：`https://testnet.kitescan.ai/`
 - **Faucet**：`https://faucet.gokite.ai/`（每地址 24h 一次，0.5 KITE）
-- **多签钱包**：`0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA`（SimpleMultiSig，2/3）
-- **冻结合约**：`0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719`（SimpleFreeze）
+- **多签钱包**：`0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9`（SimpleMultiSig，2/3）
+- **冻结合约**：`0x2D274B8e53DEF4389a9590A7F6e323D3b8763189`（SimpleFreeze）
 - **测试 USDC**：`0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63`
 - **Bundler**：`https://bundler-service.staging.gokite.ai/rpc/`（AA 模式必需）
 - **注意**：Ash Wallet 支持 Kite；Gnosis Safe 不支持 Kite 网络
