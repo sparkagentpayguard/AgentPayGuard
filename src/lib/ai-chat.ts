@@ -151,31 +151,64 @@ export class AIChatOrchestrator {
     }
   }
 
+  /**
+   * Fallback Classifier / 回退分类器
+   * Used when AI classification fails, provides basic keyword-based classification
+   * 当AI分类失败时使用，提供基于关键词的基本分类
+   */
   fallbackClassify(message: string): ChatClassification {
     const lower = message.toLowerCase();
 
-    // Payment keywords (must have transfer intent + number)
+    // Payment keywords (must have transfer intent + number) / 支付关键词（必须有转账意图+数字）
     if (/\b(pay|send|transfer|转|支付|汇|打款)\b/i.test(lower) && /\d/.test(lower)) {
       return { action: 'payment', response: '', paymentRequest: message };
     }
 
-    // Balance keywords
+    // Balance keywords / 余额关键词
     if (/\b(balance|余额|balances|how much|还剩|可用)\b/i.test(lower)) {
       return { action: 'query_balance', response: '' };
     }
 
-    // Policy keywords
+    // Policy keywords / 策略关键词
     if (/\b(policy|policies|limit|allowlist|白名单|策略|限额|规则)\b/i.test(lower)) {
       return { action: 'query_policy', response: '' };
     }
 
-    // Freeze keywords
+    // Freeze keywords / 冻结关键词
     if (/\b(frozen?|freeze|冻结|是否被冻)\b/i.test(lower)) {
       const addrMatch = message.match(/0x[a-fA-F0-9]{40}/);
       return { action: 'query_freeze', response: '', queryAddress: addrMatch?.[0] };
     }
 
-    return { action: 'conversation', response: 'I am AgentPayGuard assistant. I can help you with payments, balance queries, policy checks, and freeze status. How can I help?' };
+    // Technical questions / 技术问题：返回详细的功能说明
+    if (/\b(功能|实现|原理|机制|技术|架构|如何工作|what.*implement|how.*work|features|functions)\b/i.test(lower)) {
+      const detailedResponse = `AgentPayGuard 是一个基于 Kite 测试网的 AI Agent 支付风控系统。核心功能包括：
+
+1. **自然语言支付解析**：支持理解如"Pay 50 USDC to 0x... for server hosting"的指令，自动提取收款地址、金额、币种和支付目的。
+
+2. **智能风险评估**：使用 AI（支持 OpenAI、DeepSeek、Gemini、Claude 等多种提供商）进行风险评分（0-100），提供风险等级（低/中/高）和详细理由。
+
+3. **多层安全防护**：
+   - 传统规则：白名单、单笔限额、日限额
+   - AI 风险评估：基于支付目的、金额、历史模式
+   - 链上冻结检查：实时检查多签冻结状态
+
+4. **Agent 身份绑定**：每笔支付都与 Agent 身份绑定（支持 KitePass API Key 或 Kite AA SDK），确保可追溯性。
+
+5. **双路径支付**：支持 EOA（外部账户）和 AA（账户抽象）两种支付模式。
+
+技术架构：自然语言请求 → AI 意图解析 → 风险评估 → 策略检查 → 链上执行。所有规则在执行前强制执行，2/3 多签提供人类兜底机制。
+
+如需了解更多技术细节，请告诉我具体想了解的功能模块。`;
+
+      return { action: 'conversation', response: detailedResponse };
+    }
+
+    // Default fallback response / 默认回退响应
+    return { 
+      action: 'conversation', 
+      response: '你好！我是 AgentPayGuard AI 助手。我可以帮助您处理支付、查询余额、检查策略、验证地址冻结状态，或回答相关问题。请告诉我您需要什么帮助？' 
+    };
   }
 
   private normalizeAction(raw: unknown): ChatAction {

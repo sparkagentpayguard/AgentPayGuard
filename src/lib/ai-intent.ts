@@ -303,7 +303,7 @@ Example inputs:
         riskLevel: parsed.riskLevel?.toLowerCase() as 'low' | 'medium' | 'high' || 'medium'
       };
     } catch (error: unknown) {
-      // 处理重试错误
+      // Handle retry errors / 处理重试错误
       if (error instanceof RetryableError) {
         console.error(`[AI] Failed after retries: ${error.message}`);
         const errorCode = extractErrorCode(error.originalError);
@@ -326,8 +326,10 @@ Example inputs:
       } else if (error instanceof AIAPIError) {
         throw error;
       } else {
-        console.error('[AI] Error parsing intent:', error);
-        // 非重试错误，使用回退解析器
+        // Handle unknown errors / 处理未知错误
+        const err = error instanceof Error ? error : new Error(String(error));
+        console.error('[AI] Error parsing intent:', err);
+        // Non-retryable error, use fallback parser / 非重试错误，使用回退解析器
         return this.fallbackParse(userMessage);
       }
     }
