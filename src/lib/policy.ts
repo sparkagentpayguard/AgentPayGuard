@@ -76,22 +76,12 @@ export async function evaluatePolicy(args: {
   }
 
   // 2. Check On-chain Freeze Status (Strong Consistency)
+  // 使用批量查询接口（即使只有一个地址，也使用批量接口以保持一致性）
   if (provider && freezeContractAddress) {
     try {
-      const freezeContract = new ethers.Contract(freezeContractAddress, FREEZE_ABI, provider);
-      
-      // 使用重试机制查询链上冻结状态
-      const isFrozen: boolean = await withRetry(
-        async () => {
-          return await freezeContract.isFrozen(recipient);
-        },
-        {
-          ...CHAIN_RPC_RETRY_OPTIONS,
-          onRetry: (attempt: number, error: Error) => {
-            console.warn(`[Policy] Retry attempt ${attempt} for freeze check: ${error.message}`);
-          }
-        }
-      );
+      // 使用批量查询接口（支持并行查询，即使只有一个地址）
+      const freezeMap = await queryFreezeStatusBatch(provider, freezeContractAddress, [recipient]);
+      const isFrozen = freezeMap.get(recipient) ?? false;
       
       if (isFrozen) {
         return {
