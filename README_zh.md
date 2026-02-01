@@ -366,7 +366,7 @@ pnpm demo:ai-agent "Pay 10 USDC to 0xd2d45ef2f2ddaffc8c8bc03cedc4f55fb9e97e2b fo
 
 - **KITE：** [Kite 测试网水龙头](https://faucet.gokite.ai/)（每地址限额）。
 - **稳定币：** 在 `.env` 中设置 `SETTLEMENT_TOKEN_ADDRESS`（见 Kite 文档测试网代币）。
-- 低余额测试：小额 `AMOUNT` / `MAX_AMOUNT` / `DAILY_LIMIT` 配合干跑可覆盖大部分策略/冻结场景；详见 `docs/guides/TESTING_GUIDE.md`。
+- 低余额测试：小额 `AMOUNT` / `MAX_AMOUNT` / `DAILY_LIMIT` 配合干跑可覆盖大部分策略/冻结场景。
 
 ## 仓库结构
 

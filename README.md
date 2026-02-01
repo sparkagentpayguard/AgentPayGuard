@@ -417,7 +417,7 @@ Optional: [Chainlink env-enc](https://www.npmjs.com/package/@chainlink/env-enc) 
 
 - **KITE:** [Kite testnet faucet](https://faucet.gokite.ai/) (per-address limit).
 - **Stablecoin:** Set `SETTLEMENT_TOKEN_ADDRESS` in `.env` (see Kite docs for testnet token).
-- Low-balance testing: small `AMOUNT` / `MAX_AMOUNT` / `DAILY_LIMIT` with dry run covers most policy/freeze cases; see `docs/guides/TESTING_GUIDE.md` for details.
+- Low-balance testing: small `AMOUNT` / `MAX_AMOUNT` / `DAILY_LIMIT` with dry run covers most policy/freeze cases.
 
 ## Repo structure
 
