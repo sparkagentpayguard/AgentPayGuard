@@ -28,11 +28,114 @@ const { parseAllowlist, evaluatePolicyWithAI, getAIEnhancedPolicy, prepareAmount
 const { getTokenDecimals, getTokenBalance } = await import('./lib/erc20.js');
 const { readSpentToday, addSpentToday } = await import('./lib/state.js');
 const { runPay } = await import('./lib/run-pay.js');
+const { AIChatOrchestrator } = await import('./lib/ai-chat.js');
+import type { ChatHistoryMessage, PendingPayment } from './lib/ai-chat.js';
 
 // Cache AIIntentParser instance to avoid recreating OpenAI client on each request
 const env = loadEnv();
 const cachedAIParser = new AIIntentParser();
 console.error('[AgentPayGuard API] modules preloaded, AI parser initialized');
+
+// ─── Shared AI payment pipeline ──────────────────────────────────────
+interface AIPayPipelineResult {
+  ok: boolean;
+  intent?: Record<string, unknown>;
+  risk?: Record<string, unknown>;
+  policy?: Record<string, unknown>;
+  txHash?: string;
+  userOpHash?: string;
+  agentWallet?: string;
+  error?: string;
+  message?: string;
+}
+
+async function runAIPayPipeline(request: string, executeOnchain: boolean): Promise<AIPayPipelineResult> {
+  if (!cachedAIParser.isEnabled()) {
+    return { ok: false, error: 'ai_disabled', message: 'AI features disabled. Set ENABLE_AI_INTENT=1 and configure API key.' };
+  }
+
+  const provider = new ethers.JsonRpcProvider(env.RPC_URL, env.CHAIN_ID);
+  const tokenDecimalsForContext = env.TOKEN_DECIMALS ?? await getTokenDecimals(provider, env.SETTLEMENT_TOKEN_ADDRESS);
+
+  let walletBalanceHuman = 0;
+  let agentWalletAddress: string | undefined;
+  if (env.PRIVATE_KEY) {
+    const wallet = new ethers.Wallet(env.PRIVATE_KEY);
+    agentWalletAddress = await wallet.getAddress();
+    const balanceWei = await getTokenBalance(provider, env.SETTLEMENT_TOKEN_ADDRESS, agentWalletAddress);
+    walletBalanceHuman = Number(ethers.formatUnits(balanceWei, tokenDecimalsForContext));
+    console.log('[ai-pipeline] Agent wallet:', agentWalletAddress, '| balance:', walletBalanceHuman);
+  }
+
+  const spentTodayForContext = await readSpentToday(env.STATE_PATH);
+  const spentTodayHuman = Number(ethers.formatUnits(spentTodayForContext, tokenDecimalsForContext));
+  const context = { historicalPayments: [] as never[], walletBalance: walletBalanceHuman, spentToday: spentTodayHuman };
+
+  const { intent, risk: aiAssessment } = await cachedAIParser.parseAndAssessRisk(request, context);
+
+  if (!intent.parsedSuccessfully) {
+    return { ok: false, error: 'parse_failed', message: 'Failed to parse payment intent', intent: intent as unknown as Record<string, unknown> };
+  }
+
+  const finalRecipient = intent.recipient !== 'unknown' ? intent.recipient : env.RECIPIENT;
+  if (!finalRecipient || finalRecipient === 'unknown') {
+    return { ok: false, error: 'no_recipient', message: 'No recipient address specified or parsed', intent: intent as unknown as Record<string, unknown> };
+  }
+
+  const tokenDecimals = tokenDecimalsForContext;
+  const spentToday = spentTodayForContext;
+  const amountInTokenUnits = prepareAmountForEvaluation(intent.amountNumber, intent.currency, tokenDecimals);
+
+  const basePolicy = {
+    allowlist: (() => { const a = parseAllowlist(env.ALLOWLIST || ''); return a.length ? a : undefined; })(),
+    maxAmount: env.MAX_AMOUNT ? ethers.parseUnits(env.MAX_AMOUNT, tokenDecimals) : undefined,
+    dailyLimit: env.DAILY_LIMIT ? ethers.parseUnits(env.DAILY_LIMIT, tokenDecimals) : undefined,
+  };
+  const enhancedPolicy = getAIEnhancedPolicy(basePolicy, { AI_MAX_RISK_SCORE: env.AI_MAX_RISK_SCORE, AI_AUTO_REJECT_LEVELS: env.AI_AUTO_REJECT_LEVELS });
+  const FREEZE_CONTRACT = '0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719';
+
+  const riskRejectionMessage = (msg: string) => {
+    const reasons = aiAssessment.reasons.join('; ');
+    const hint = /balance|余额|0\s*[,;]|wallet\s*balance/i.test(reasons)
+      ? 'AI 检测的余额来自后端 .env 中 PRIVATE_KEY 对应钱包的结算代币 (SETTLEMENT_TOKEN_ADDRESS)，不是前端连接的钱包。请为该 Agent 钱包充值结算代币或核对 .env 配置。'
+      : undefined;
+    return { message: msg, hint };
+  };
+
+  if (enhancedPolicy.maxRiskScore !== undefined && aiAssessment.score > enhancedPolicy.maxRiskScore) {
+    const { message, hint } = riskRejectionMessage(`AI风险评估分数过高：${aiAssessment.score} > ${enhancedPolicy.maxRiskScore}。原因：${aiAssessment.reasons.join('; ')}`);
+    return { ok: false, intent: intent as unknown as Record<string, unknown>, risk: aiAssessment as unknown as Record<string, unknown>, policy: { ok: false, code: 'AI_RISK_TOO_HIGH', message, hint }, ...(agentWalletAddress && { agentWallet: agentWalletAddress }) };
+  }
+
+  const riskLevel = aiAssessment.level as 'high' | 'medium' | 'low';
+  if (enhancedPolicy.autoRejectRiskLevels?.includes(riskLevel as 'high' | 'medium')) {
+    const { message, hint } = riskRejectionMessage(`AI风险评估等级为 ${aiAssessment.level}，根据策略自动拒绝。原因：${aiAssessment.reasons.join('; ')}`);
+    return { ok: false, intent: intent as unknown as Record<string, unknown>, risk: aiAssessment as unknown as Record<string, unknown>, policy: { ok: false, code: 'AI_RISK_TOO_HIGH', message, hint }, ...(agentWalletAddress && { agentWallet: agentWalletAddress }) };
+  }
+
+  const decision = await evaluatePolicyWithAI({
+    policy: enhancedPolicy, recipient: finalRecipient, amount: amountInTokenUnits, spentToday,
+    provider, freezeContractAddress: FREEZE_CONTRACT,
+    naturalLanguageRequest: request, paymentIntent: intent, aiParser: cachedAIParser,
+    context: { historicalPayments: [], walletBalance: context.walletBalance },
+  });
+  decision.aiAssessment = aiAssessment;
+
+  if (!decision.baseDecision.ok) {
+    return { ok: false, intent: intent as unknown as Record<string, unknown>, risk: aiAssessment as unknown as Record<string, unknown>, policy: decision.baseDecision as unknown as Record<string, unknown> };
+  }
+
+  if (executeOnchain) {
+    const payResult = await runPay({ recipient: finalRecipient, amount: intent.amount.split(' ')[0], paymentMode: env.PAYMENT_MODE as 'eoa' | 'aa', executeOnchain: true });
+    if (payResult.ok) {
+      await addSpentToday(env.STATE_PATH, amountInTokenUnits);
+      return { ok: true, intent: intent as unknown as Record<string, unknown>, risk: aiAssessment as unknown as Record<string, unknown>, policy: decision.baseDecision as unknown as Record<string, unknown>, txHash: payResult.txHash, userOpHash: payResult.userOpHash };
+    }
+    return { ok: false, intent: intent as unknown as Record<string, unknown>, risk: aiAssessment as unknown as Record<string, unknown>, policy: payResult as unknown as Record<string, unknown> };
+  }
+
+  return { ok: true, intent: intent as unknown as Record<string, unknown>, risk: aiAssessment as unknown as Record<string, unknown>, policy: decision.baseDecision as unknown as Record<string, unknown> };
+}
 
 function parseBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
@@ -165,181 +268,148 @@ const server = http.createServer(async (req, res) => {
       const body = await parseBody(req);
       const request = typeof body.request === 'string' ? body.request : '';
       const executeOnchain = body.executeOnchain === true || body.executeOnchain === 'true' || body.executeOnchain === '1';
-      
       if (!request.trim()) {
         send(res, 400, { ok: false, error: 'missing_request', message: 'Natural language request is required' });
         return;
       }
-      
-      if (!cachedAIParser.isEnabled()) {
-        send(res, 400, { ok: false, error: 'ai_disabled', message: 'AI features disabled. Set ENABLE_AI_INTENT=1 and configure API key.' });
-        return;
-      }
-      
-      const provider = new ethers.JsonRpcProvider(env.RPC_URL, env.CHAIN_ID);
-      const tokenDecimalsForContext = env.TOKEN_DECIMALS ?? await getTokenDecimals(provider, env.SETTLEMENT_TOKEN_ADDRESS);
-      // Balance passed to AI = backend Agent wallet (PRIVATE_KEY) settlement token only — not the frontend connected wallet
-      let walletBalanceHuman = 0;
-      let agentWalletAddress: string | undefined;
-      if (env.PRIVATE_KEY) {
-        const wallet = new ethers.Wallet(env.PRIVATE_KEY);
-        agentWalletAddress = await wallet.getAddress();
-        const balanceWei = await getTokenBalance(provider, env.SETTLEMENT_TOKEN_ADDRESS, agentWalletAddress);
-        walletBalanceHuman = Number(ethers.formatUnits(balanceWei, tokenDecimalsForContext));
-        console.log('[api/ai-pay] Agent wallet (PRIVATE_KEY):', agentWalletAddress, '| Settlement token balance:', walletBalanceHuman);
-        if (walletBalanceHuman === 0) {
-          console.warn('[api/ai-pay] Settlement token balance is 0. Token:', env.SETTLEMENT_TOKEN_ADDRESS);
-        }
-      }
-      const spentTodayForContext = await readSpentToday(env.STATE_PATH);
-      const spentTodayHuman = Number(ethers.formatUnits(spentTodayForContext, tokenDecimalsForContext));
-      const context = {
-        historicalPayments: [],
-        walletBalance: walletBalanceHuman,
-        spentToday: spentTodayHuman
-      };
-      const { intent, risk: aiAssessment } = await cachedAIParser.parseAndAssessRisk(request, context);
-      
-      if (!intent.parsedSuccessfully) {
-        send(res, 400, { ok: false, error: 'parse_failed', message: 'Failed to parse payment intent', intent });
-        return;
-      }
-      
-      // Determine recipient
-      const finalRecipient = intent.recipient !== 'unknown' ? intent.recipient : env.RECIPIENT;
-      if (!finalRecipient || finalRecipient === 'unknown') {
-        send(res, 400, { ok: false, error: 'no_recipient', message: 'No recipient address specified or parsed', intent });
-        return;
-      }
-      
-      // Reuse token decimals and spent-today from context (no duplicate RPC/file read)
-      const tokenDecimals = tokenDecimalsForContext;
-      const spentToday = spentTodayForContext;
-      
-      const amountInTokenUnits = prepareAmountForEvaluation(intent.amountNumber, intent.currency, tokenDecimals);
-      
-      // Prepare policy
-      const basePolicy = {
-        allowlist: (() => { const a = parseAllowlist(env.ALLOWLIST || ''); return a.length ? a : undefined; })(),
-        maxAmount: env.MAX_AMOUNT ? ethers.parseUnits(env.MAX_AMOUNT, tokenDecimals) : undefined,
-        dailyLimit: env.DAILY_LIMIT ? ethers.parseUnits(env.DAILY_LIMIT, tokenDecimals) : undefined
-      };
-      const enhancedPolicy = getAIEnhancedPolicy(basePolicy, {
-        AI_MAX_RISK_SCORE: env.AI_MAX_RISK_SCORE,
-        AI_AUTO_REJECT_LEVELS: env.AI_AUTO_REJECT_LEVELS
-      });
-      const FREEZE_CONTRACT = '0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719';
-      
-      // OPTIMIZATION 3: Use pre-computed AI assessment instead of calling AI again
-      // Check AI risk thresholds first (fast, no network call)
-      const riskRejectionMessage = (msg: string) => {
-        const reasons = aiAssessment.reasons.join('; ');
-        const hint = /balance|余额|0\s*[,;]|wallet\s*balance/i.test(reasons)
-          ? 'AI 检测的余额来自后端 .env 中 PRIVATE_KEY 对应钱包的结算代币 (SETTLEMENT_TOKEN_ADDRESS)，不是前端连接的钱包。请为该 Agent 钱包充值结算代币或核对 .env 配置。'
-          : undefined;
-        return { message: msg, hint };
-      };
-      if (enhancedPolicy.maxRiskScore !== undefined && aiAssessment.score > enhancedPolicy.maxRiskScore) {
-        const { message, hint } = riskRejectionMessage(
-          `AI风险评估分数过高：${aiAssessment.score} > ${enhancedPolicy.maxRiskScore}。原因：${aiAssessment.reasons.join('; ')}`
-        );
-        if (agentWalletAddress) {
-          console.warn('[api/ai-pay] Rejected (risk score). Agent wallet:', agentWalletAddress);
-        }
-        send(res, 200, {
-          ok: false,
-          intent,
-          risk: aiAssessment,
-          policy: { ok: false, code: 'AI_RISK_TOO_HIGH', message, hint },
-          ...(agentWalletAddress && { agentWallet: agentWalletAddress })
-        });
-        return;
-      }
-      
-      const riskLevel = aiAssessment.level as 'high' | 'medium' | 'low';
-      if (enhancedPolicy.autoRejectRiskLevels?.includes(riskLevel as 'high' | 'medium')) {
-        const { message, hint } = riskRejectionMessage(
-          `AI风险评估等级为 ${aiAssessment.level}，根据策略自动拒绝。原因：${aiAssessment.reasons.join('; ')}`
-        );
-        if (agentWalletAddress) {
-          console.warn('[api/ai-pay] Rejected (risk level). Agent wallet:', agentWalletAddress);
-        }
-        send(res, 200, {
-          ok: false,
-          intent,
-          risk: aiAssessment,
-          policy: { ok: false, code: 'AI_RISK_TOO_HIGH', message, hint },
-          ...(agentWalletAddress && { agentWallet: agentWalletAddress })
-        });
-        return;
-      }
-      
-      // Evaluate traditional policy rules (allowlist, limits, freeze check)
-      const decision = await evaluatePolicyWithAI({
-        policy: enhancedPolicy,
-        recipient: finalRecipient,
-        amount: amountInTokenUnits,
-        spentToday,
-        provider,
-        freezeContractAddress: FREEZE_CONTRACT,
-        naturalLanguageRequest: request,
-        paymentIntent: intent,
-        aiParser: cachedAIParser,
-        context: { historicalPayments: [], walletBalance: context.walletBalance }
-      });
-      
-      // Override AI assessment with our pre-computed one
-      decision.aiAssessment = aiAssessment;
-      
-      // Return result with intent, risk, and policy decision
-      if (!decision.baseDecision.ok) {
-        send(res, 200, {
-          ok: false,
-          intent,
-          risk: decision.aiAssessment,
-          policy: decision.baseDecision
-        });
-        return;
-      }
-      
-      // If approved and executeOnchain, run payment
-      if (executeOnchain) {
-        const payResult = await runPay({
-          recipient: finalRecipient,
-          amount: intent.amount.split(' ')[0], // Extract numeric part
-          paymentMode: env.PAYMENT_MODE as 'eoa' | 'aa',
-          executeOnchain: true
-        });
-        
-        if (payResult.ok) {
-          await addSpentToday(env.STATE_PATH, amountInTokenUnits);
-          send(res, 200, {
-            ok: true,
-            intent,
-            risk: decision.aiAssessment,
-            policy: decision.baseDecision,
-            txHash: payResult.txHash,
-            userOpHash: payResult.userOpHash
-          });
-        } else {
-          send(res, 400, {
-            ok: false,
-            intent,
-            risk: decision.aiAssessment,
-            policy: payResult
-          });
-        }
-      } else {
-        // Dry-run: return approval without executing
-        send(res, 200, {
-          ok: true,
-          intent,
-          risk: decision.aiAssessment,
-          policy: decision.baseDecision
-        });
-      }
+      const result = await runAIPayPipeline(request, executeOnchain);
+      send(res, result.ok ? 200 : (result.error ? 400 : 200), result);
     } catch (err) {
       send(res, 500, { ok: false, error: 'server_error', message: err instanceof Error ? err.message : 'AI payment failed' });
+    }
+    return;
+  }
+
+  // ─── AI Chat: natural conversation endpoint ─────────────────────────
+  if (path === '/api/ai-chat' && req.method === 'POST') {
+    try {
+      const body = await parseBody(req);
+      const message = typeof body.message === 'string' ? body.message : '';
+      const history = Array.isArray(body.history) ? body.history as ChatHistoryMessage[] : [];
+      const confirmPayment = body.confirmPayment === true;
+      const pending = (body.pendingPayment ?? null) as PendingPayment | null;
+
+      if (!message.trim() && !confirmPayment) {
+        send(res, 400, { ok: false, text: 'Message is required.', action: 'conversation' });
+        return;
+      }
+
+      // Payment confirmation flow
+      if (confirmPayment && pending?.originalRequest) {
+        console.log('[api/ai-chat] Confirming payment:', pending.originalRequest);
+        const result = await runAIPayPipeline(pending.originalRequest, true);
+        const text = result.ok && result.txHash
+          ? `Payment executed successfully! Tx: ${result.txHash}`
+          : `Payment failed: ${result.message || 'Unknown error'}`;
+        send(res, 200, { text, action: 'payment', paymentResult: result });
+        return;
+      }
+
+      // Build chat orchestrator
+      const openaiClient = cachedAIParser.getOpenAIClient();
+      if (!openaiClient || !cachedAIParser.isEnabled()) {
+        // AI disabled — use fallback keyword classification only
+        const fallback = new AIChatOrchestrator(null as unknown as import('openai').default, '');
+        const cls = fallback.fallbackClassify(message);
+        send(res, 200, { text: cls.response || 'AI is not configured. Please set ENABLE_AI_INTENT=1 and an API key.', action: cls.action });
+        return;
+      }
+
+      const orchestrator = new AIChatOrchestrator(openaiClient, cachedAIParser.getModel());
+      const classification = await orchestrator.classify(message, history);
+
+      switch (classification.action) {
+        case 'payment': {
+          const payRequest = classification.paymentRequest || message;
+          const result = await runAIPayPipeline(payRequest, false); // always dry-run first
+          const pendingPayment: PendingPayment = {
+            recipient: (result.intent as Record<string, string>)?.recipient ?? '',
+            amount: (result.intent as Record<string, string>)?.amount ?? '',
+            currency: (result.intent as Record<string, string>)?.currency ?? 'USDC',
+            purpose: (result.intent as Record<string, string>)?.purpose ?? '',
+            originalRequest: payRequest,
+          };
+          send(res, 200, {
+            text: classification.response || (result.ok ? 'Payment intent parsed. Please review and confirm.' : `Issue found: ${result.message || 'Policy check failed.'}`),
+            action: 'payment',
+            paymentResult: result,
+            pendingConfirmation: result.ok,
+            pendingPayment: result.ok ? pendingPayment : undefined,
+          });
+          break;
+        }
+        case 'query_balance': {
+          let text = classification.response;
+          const queryResult: Record<string, unknown> = {};
+          try {
+            if (env.PRIVATE_KEY) {
+              const provider = new ethers.JsonRpcProvider(env.RPC_URL, env.CHAIN_ID);
+              const wallet = new ethers.Wallet(env.PRIVATE_KEY);
+              const addr = await wallet.getAddress();
+              const decimals = env.TOKEN_DECIMALS ?? await getTokenDecimals(provider, env.SETTLEMENT_TOKEN_ADDRESS);
+              const balWei = await getTokenBalance(provider, env.SETTLEMENT_TOKEN_ADDRESS, addr);
+              const balHuman = Number(ethers.formatUnits(balWei, decimals));
+              queryResult.address = addr;
+              queryResult.balance = balHuman;
+              queryResult.token = env.SETTLEMENT_TOKEN_ADDRESS;
+              if (!text) text = `Agent wallet (${addr.slice(0, 6)}...${addr.slice(-4)}) balance: ${balHuman} (settlement token).`;
+            } else {
+              if (!text) text = 'PRIVATE_KEY is not configured. Cannot query balance.';
+            }
+          } catch (e) {
+            if (!text) text = 'Failed to query balance.';
+          }
+          send(res, 200, { text, action: 'query_balance', queryResult });
+          break;
+        }
+        case 'query_policy': {
+          let text = classification.response;
+          try {
+            const allowlist = parseAllowlist(env.ALLOWLIST || '');
+            const queryResult = {
+              allowlistCount: allowlist.length,
+              allowlist: allowlist.slice(0, 5),
+              maxAmount: env.MAX_AMOUNT ?? null,
+              dailyLimit: env.DAILY_LIMIT ?? null,
+              settlementToken: env.SETTLEMENT_TOKEN_ADDRESS,
+              chainId: env.CHAIN_ID,
+            };
+            if (!text) {
+              text = `Policy: ${allowlist.length} address(es) in allowlist, max amount: ${env.MAX_AMOUNT ?? 'unlimited'}, daily limit: ${env.DAILY_LIMIT ?? 'unlimited'}.`;
+            }
+            send(res, 200, { text, action: 'query_policy', queryResult });
+          } catch {
+            send(res, 200, { text: text || 'Failed to load policy.', action: 'query_policy' });
+          }
+          break;
+        }
+        case 'query_freeze': {
+          let text = classification.response;
+          const addr = classification.queryAddress;
+          if (addr && /^0x[a-fA-F0-9]{40}$/.test(addr)) {
+            try {
+              const FREEZE_CONTRACT = '0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719';
+              const FREEZE_ABI = ['function isFrozen(address account) view returns (bool)'];
+              const provider = new ethers.JsonRpcProvider(env.RPC_URL, env.CHAIN_ID);
+              const contract = new ethers.Contract(FREEZE_CONTRACT, FREEZE_ABI, provider);
+              const isFrozen: boolean = await contract.isFrozen(addr);
+              if (!text) text = isFrozen ? `Address ${addr} is FROZEN on-chain.` : `Address ${addr} is NOT frozen.`;
+              send(res, 200, { text, action: 'query_freeze', queryResult: { address: addr, isFrozen } });
+            } catch {
+              send(res, 200, { text: text || 'Failed to check freeze status.', action: 'query_freeze' });
+            }
+          } else {
+            send(res, 200, { text: text || 'Please provide a valid Ethereum address (0x...) to check freeze status.', action: 'query_freeze' });
+          }
+          break;
+        }
+        default: {
+          send(res, 200, { text: classification.response || "I'm AgentPayGuard assistant. How can I help?", action: 'conversation' });
+          break;
+        }
+      }
+    } catch (err) {
+      send(res, 500, { ok: false, text: 'Sorry, an error occurred.', action: 'conversation', error: err instanceof Error ? err.message : 'Chat failed' });
     }
     return;
   }
@@ -363,6 +433,7 @@ const server = http.createServer(async (req, res) => {
   <li><a href="/api/freeze?address=0x...">GET /api/freeze?address=0x...</a> - 查询地址是否被链上冻结（前端可测）</li>
   <li>POST /api/pay - 发起支付（需用前端或 curl 调用）</li>
   <li>POST /api/ai-pay - AI 自然语言支付（需用前端或 curl 调用）</li>
+  <li>POST /api/ai-chat - AI 自然对话（支持闲聊/查询/支付确认）</li>
 </ul>
 </body></html>`);
     return;
@@ -379,6 +450,7 @@ server.listen(PORT, () => {
   console.log('  GET  /api/freeze  - 查询地址冻结状态（?address=0x...）');
   console.log('  POST /api/pay     - 发起支付（body: recipient?, amount?, paymentMode?, executeOnchain?）');
   console.log('  POST /api/ai-pay  - AI 自然语言支付（body: request, executeOnchain?）');
+  console.log('  POST /api/ai-chat - AI 自然对话（body: message, history?, confirmPayment?, pendingPayment?）');
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {

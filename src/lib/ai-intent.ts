@@ -132,6 +132,16 @@ export class AIIntentParser {
     return this.env.ENABLE_AI_INTENT && this.provider !== 'none';
   }
 
+  /** Expose the OpenAI client for reuse by AIChatOrchestrator */
+  getOpenAIClient(): OpenAI | null {
+    return this.openai;
+  }
+
+  /** Expose the model name for reuse */
+  getModel(): string {
+    return this.model;
+  }
+
   getProviderInfo(): { provider: AIProvider; model: string; isFree: boolean; baseURL?: string } {
     const freeProviders: AIProvider[] = ['deepseek', 'gemini', 'ollama', 'lmstudio', 'local'];
     const isFree = freeProviders.includes(this.provider);
