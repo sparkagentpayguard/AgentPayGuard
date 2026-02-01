@@ -102,7 +102,7 @@ graph TB
 ```
 
 **🔗 Contract Addresses:**
-- **Multisig**: `0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA`
+- **Multisig**: `0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9`
 - **Freeze Contract**: `0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719`
 - **Freeze Tx**: [View on KiteScan](https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c)
 
@@ -151,7 +151,7 @@ graph TB
 |-------------|----------------|----------|--------|
 | **⛓️ Chain payment** | Stablecoin transfer on Kite testnet (EOA + AA) | EOA: [Kite Tx](https://testnet.kitescan.ai/tx/0x8ec4f4a44fb7ef878db9fc549ff81294982224648f3cc21ecad04764dcbd75db) · AA: [Kite Tx](https://testnet.kitescan.ai/tx/0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313) | ✅ |
 | **🔐 Agent identity** | KitePass (Agent Passport) + Kite AA SDK | KitePass API Key (optional) or AA SDK Account Abstraction (no API key required); payment requests bound to Agent identity | ✅ |
-| **🛡️ Permission control** | Allowlist, limits, on-chain freeze check before every payment | Multisig: `0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA` · Freeze Tx: [Kite Tx](https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c) | ✅ |
+| **🛡️ Permission control** | Allowlist, limits, on-chain freeze check before every payment | Multisig: `0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9` · Freeze Tx: [Kite Tx](https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c) | ✅ |
 | **🔄 Reproducibility** | One-command run; README and scripts for clone → run | Part II below; `pnpm demo:pay` / `pnpm demo:ai-agent "..."` | ✅ |
 
 ---
@@ -491,7 +491,7 @@ Optional: [Chainlink env-enc](https://www.npmjs.com/package/@chainlink/env-enc) 
 
 Emergency Override (Parallel Path):
   SimpleMultiSig (2/3) → Freeze Contract → Block Payments
-  - Multisig: 0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA
+  - Multisig: 0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9
   - Freeze Contract: 0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719
   - Freeze Tx: https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c
 ```
@@ -681,7 +681,7 @@ In development environment, `/api` proxies to main repo API (3456). Open homepag
 - **AA UserOp Hash**: `0x423936cb87ad9946e28f5d06d8ff736735ca7bb43ed7861a8f632919157afce3`
 
 ### Multisig Freeze Mechanism
-- **Multisig address**: `0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA`
+- **Multisig address**: `0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9`
 - **Freeze contract**: `0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719`
 - **Freeze operation Tx**: https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c
 

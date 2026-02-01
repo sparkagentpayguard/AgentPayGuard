@@ -17,7 +17,7 @@ pnpm demo:multisig-info
 === 🔍 多签钱包信息查询 ===
 
 📋 多签合约信息:
-   地址: 0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA
+   地址: 0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9
    阈值: 2/3
    提案总数: 5
 
@@ -92,7 +92,7 @@ foundryup
 ```bash
 cast call \
   --rpc-url https://rpc-testnet.gokite.ai/ \
-  0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA \
+  0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9 \
   "getOwners()(address[3])"
 ```
 
@@ -107,21 +107,21 @@ cast call \
 # 查询第 0 个 owner
 cast call \
   --rpc-url https://rpc-testnet.gokite.ai/ \
-  0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA \
+  0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9 \
   "owners(uint256)(address)" \
   0
 
 # 查询第 1 个 owner
 cast call \
   --rpc-url https://rpc-testnet.gokite.ai/ \
-  0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA \
+  0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9 \
   "owners(uint256)(address)" \
   1
 
 # 查询第 2 个 owner
 cast call \
   --rpc-url https://rpc-testnet.gokite.ai/ \
-  0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA \
+  0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9 \
   "owners(uint256)(address)" \
   2
 ```
@@ -131,7 +131,7 @@ cast call \
 ```bash
 cast call \
   --rpc-url https://rpc-testnet.gokite.ai/ \
-  0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA \
+  0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9 \
   "isOwner(address)(bool)" \
   0x你的地址
 ```
@@ -147,7 +147,7 @@ cast call \
 ```typescript
 import { ethers } from 'ethers';
 
-const MULTISIG = '0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA';
+const MULTISIG = '0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9';
 const RPC_URL = 'https://rpc-testnet.gokite.ai/';
 
 const MULTISIG_ABI = [
@@ -187,7 +187,7 @@ queryOwners();
 
 ### 在线查询
 
-1. 访问：https://testnet.kitescan.ai/address/0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA
+1. 访问：https://testnet.kitescan.ai/address/0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9
 2. 点击 "Contract" 标签
 3. 在 "Read Contract" 部分找到 `getOwners` 函数
 4. 点击 "Read" 按钮查看结果
@@ -221,7 +221,7 @@ const client = createPublicClient({
 
 async function getOwners() {
   const owners = await client.readContract({
-    address: '0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA',
+    address: '0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9',
     abi: MULTISIG_ABI,
     functionName: 'getOwners',
   });

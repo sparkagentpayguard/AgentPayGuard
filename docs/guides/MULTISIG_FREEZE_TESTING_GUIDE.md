@@ -29,7 +29,7 @@
 1. **确认多签 Owner 地址**
    ```bash
    # 在 KiteScan 查询多签合约
-   # https://testnet.kitescan.ai/address/0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA
+   # https://testnet.kitescan.ai/address/0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9
    # 调用 getOwners() 查看3个owner地址
    ```
 
@@ -56,7 +56,7 @@ pnpm demo:freeze
 
 **方式2：前端界面**
 1. 启动前端：`cd frontend && npm run dev`
-2. 访问 `http://localhost:5173/freeze`
+2. 访问 `http://localhost:8080/freeze`
 3. 输入测试地址，点击 "SCAN"
 4. 查看状态：应该显示 "ACTIVE"（未冻结）
 
@@ -78,7 +78,7 @@ pnpm demo:freeze
 
 **使用前端界面：**
 1. **切换钱包**：断开 Owner 1，连接 Owner 2 钱包
-2. 访问 `http://localhost:5173/proposals`
+2. 访问 `http://localhost:8080/proposals`
 3. 找到刚才创建的提案（ID 应该是最新的）
 4. 点击 "CONFIRM" 按钮
 5. 确认交易
@@ -172,13 +172,13 @@ pnpm demo:pay
 ```bash
 # 使用 cast（Foundry）或 ethers.js 脚本
 # 查询 owners
-cast call 0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA "getOwners()" --rpc-url https://rpc-testnet.gokite.ai/
+cast call 0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9 "getOwners()" --rpc-url https://rpc-testnet.gokite.ai/
 
 # 查询阈值
-cast call 0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA "REQUIRED()" --rpc-url https://rpc-testnet.gokite.ai/
+cast call 0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9 "REQUIRED()" --rpc-url https://rpc-testnet.gokite.ai/
 
 # 查询提案数量
-cast call 0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA "transactionCount()" --rpc-url https://rpc-testnet.gokite.ai/
+cast call 0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9 "transactionCount()" --rpc-url https://rpc-testnet.gokite.ai/
 ```
 
 ### 查询冻结状态
@@ -202,7 +202,7 @@ cast call 0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719 "owner()" --rpc-url https:/
 import { ethers } from 'ethers';
 import { loadEnv } from './lib/config.js';
 
-const MULTISIG = '0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA';
+const MULTISIG = '0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9';
 const FREEZE = '0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719';
 
 async function main() {
@@ -289,7 +289,7 @@ main().catch(console.error);
 **或使用命令行：**
 ```bash
 # 创建查询脚本
-cast call 0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA "isOwner(address)" 你的地址 --rpc-url https://rpc-testnet.gokite.ai/
+cast call 0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9 "isOwner(address)" 你的地址 --rpc-url https://rpc-testnet.gokite.ai/
 ```
 
 ### Q2: 提案提交后找不到？
@@ -340,8 +340,8 @@ pnpm demo:freeze
 
 # 2. 前端界面测试（需要启动前端）
 cd frontend && npm run dev
-# 访问 http://localhost:5173/freeze
-# 访问 http://localhost:5173/proposals
+# 访问 http://localhost:8080/freeze
+# 访问 http://localhost:8080/proposals
 
 # 3. 验证支付拦截（需要先冻结地址）
 # 修改 .env: RECIPIENT=被冻结的地址

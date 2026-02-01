@@ -5,7 +5,7 @@
 import { ethers } from 'ethers';
 import { loadEnv } from './lib/config.js';
 
-const MULTISIG = '0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA';
+const MULTISIG = '0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9';
 const FREEZE = '0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719';
 
 const MULTISIG_ABI = [
@@ -90,8 +90,8 @@ async function main() {
     console.log('\n=== ✅ 查询完成 ===\n');
     console.log('💡 提示:');
     console.log('   - 使用前端界面可以提交和确认提案');
-    console.log('   - 访问 http://localhost:5173/freeze 查看冻结状态');
-    console.log('   - 访问 http://localhost:5173/proposals 管理提案');
+    console.log('   - 访问 http://localhost:8080/freeze 查看冻结状态');
+    console.log('   - 访问 http://localhost:8080/proposals 管理提案');
     
   } catch (error: any) {
     console.error('❌ 查询失败:', error.message);

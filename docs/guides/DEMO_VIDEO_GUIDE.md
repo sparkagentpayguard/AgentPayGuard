@@ -9,7 +9,7 @@
 ### 第一部分：问题陈述与系统概览 (30秒)
 
 **画面**:
-- 打开前端首页 (http://localhost:5173)
+- 打开前端首页 (http://localhost:8080)
 - 展示系统状态面板（ONLINE、SECURITY MAXIMUM、NETWORK、2/3 MULTISIG）
 - 展示能力卡片（PAY、AI CHAT、MULTI-SIG、FREEZE、PROPOSALS）
 
@@ -168,7 +168,7 @@
 
 1. **环境准备**:
    - 启动后端服务器：`pnpm server`（确保 API 正常运行）
-   - 启动前端：`cd frontend && npm run dev`（访问 http://localhost:5173）
+   - 启动前端：`cd frontend && npm run dev`（访问 http://localhost:8080）
    - 准备至少 2 个测试钱包（用于多签演示）
    - 确保钱包有足够的 KITE 测试币
    - 配置好 `.env` 文件（后端配置）
@@ -261,7 +261,7 @@
 ### 环境准备
 - [ ] 后端服务器已启动（`pnpm server`）
 - [ ] 前端已启动（`cd frontend && npm run dev`）
-- [ ] 前端可以正常访问（http://localhost:5173）
+- [ ] 前端可以正常访问（http://localhost:8080）
 - [ ] MetaMask 已连接到 Kite Testnet
 - [ ] 至少准备 2 个测试钱包（用于多签演示）
 - [ ] 测试钱包有足够的 KITE 测试币
@@ -317,7 +317,7 @@ cd frontend
 npm run dev
 ```
 
-访问：http://localhost:5173
+访问：http://localhost:8080
 
 ### 步骤2: 连接钱包
 

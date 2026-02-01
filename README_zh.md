@@ -96,7 +96,7 @@ graph TB
 ```
 
 **🔗 合约地址：**
-- **多签地址**: `0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA`
+- **多签地址**: `0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9`
 - **冻结合约**: `0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719`
 - **冻结操作 Tx**: [在 KiteScan 查看](https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c)
 
@@ -145,7 +145,7 @@ graph TB
 |------|----------------|------|------|
 | **⛓️ 链上支付** | 在 Kite 测试网完成稳定币转账（EOA + AA） | EOA: [Kite Tx](https://testnet.kitescan.ai/tx/0x8ec4f4a44fb7ef878db9fc549ff81294982224648f3cc21ecad04764dcbd75db) · AA: [Kite Tx](https://testnet.kitescan.ai/tx/0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313) | ✅ |
 | **🔐 Agent 身份** | KitePass（Agent Passport）+ Kite AA SDK | KitePass API Key（可选）或 AA SDK 账户抽象（无需 API Key）；支付请求与 Agent 身份绑定 | ✅ |
-| **🛡️ 权限控制** | 白名单、限额、每次支付前链上冻结检查 | 多签: `0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA` · 冻结 Tx: [Kite Tx](https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c) | ✅ |
+| **🛡️ 权限控制** | 白名单、限额、每次支付前链上冻结检查 | 多签: `0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9` · 冻结 Tx: [Kite Tx](https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c) | ✅ |
 | **🔄 可复现性** | 一键运行；README 与脚本实现 clone → run | 见下方 Part II；`pnpm demo:pay` / `pnpm demo:ai-agent "..."` | ✅ |
 
 ---
@@ -468,7 +468,7 @@ graph TB
 ```
 
 **🔗 合约地址：**
-- **多签地址**: [`0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA`](https://testnet.kitescan.ai/address/0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA)
+- **多签地址**: [`0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9`](https://testnet.kitescan.ai/address/0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9)
 - **冻结合约**: [`0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719`](https://testnet.kitescan.ai/address/0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719)
 - **冻结操作 Tx**: [在 KiteScan 查看](https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c)
 
@@ -651,7 +651,7 @@ cd frontend && npm i && npm run dev
 - **AA UserOp Hash**：`0x423936cb87ad9946e28f5d06d8ff736735ca7bb43ed7861a8f632919157afce3`
 
 ### 多签冻结机制
-- **多签地址**：`0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA`
+- **多签地址**：`0xa5Ec521A237Eb44F7713399f8ee26FA7F423D4e9`
 - **冻结合约**：`0x3168a2307a3c272ea6CE2ab0EF1733CA493aa719`
 - **冻结操作 Tx**：https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c
 

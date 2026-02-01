@@ -226,7 +226,7 @@ export const CONTRACTS = {
 
 1. 启动前端: `cd frontend && npm run dev`
 2. 用其中一个 owner 钱包连接
-3. 访问 `http://localhost:5173/freeze`
+3. 访问 `http://localhost:8080/freeze`
 4. 提交冻结提案
 5. 用另一个 owner 钱包确认
 6. 执行提案
