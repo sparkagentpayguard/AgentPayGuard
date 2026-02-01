@@ -8,17 +8,25 @@
 
 # Part I — For Judges
 
-## Vision
+## Problem Statement
 
-Kite’s whitepaper describes the bottleneck holding back the agent economy: *autonomous agents remain constrained by infrastructure designed for humans*—grant them financial authority and risk unbounded losses, or require manual authorization and eliminate autonomy. The answer is **trustless payment infrastructure** where agents act as **first-class economic actors** under **programmable constraints** and **immutable audit trails**, with **mathematically enforced safety, not assumed trust** ([*From Human-Centric to Agent-Native*](https://gokite.ai/kite-whitepaper)).
+When AI Agents start making real payments, three critical questions emerge:
 
-AgentPayGuard is one concrete implementation on Kite. We focus on three questions: *who* is spending (identity), *whether* we can stop it when needed (policy + freeze), and *how* we explain it afterward (audit trail). The loop is: natural-language payment requests → AI intent parsing and risk assessment → **programmable rules** and on-chain freeze checks → stablecoin transfer on Kite. Rules are enforced before execution; a 2/3 multisig provides a human override for freeze/unfreeze. The pipeline is model-agnostic—optional local or edge-deployed LLMs can later deliver sub-second, privacy-preserving decisions without changing the policy layer.
+1. **Who is spending (Identity)**: Service providers and users need to verify which Agent is making the payment, on whose behalf, and under what authorization.
+2. **Can we stop it when needed (Control)**: When Agents are subject to prompt injection, key/session leaks, or abnormal behavior, payments must be forcibly intercepted before execution or at execution boundaries.
+3. **Can we explain it afterward (Audit)**: We need traceable audit trails to answer: why was this payment made, to whom, who approved it, and were the rules followed?
+
+Kite's whitepaper describes the bottleneck holding back the agent economy: *autonomous agents remain constrained by infrastructure designed for humans*—grant them financial authority and risk unbounded losses, or require manual authorization and eliminate autonomy. The answer is **trustless payment infrastructure** where agents act as **first-class economic actors** under **programmable constraints** and **immutable audit trails**, with **mathematically enforced safety, not assumed trust** ([*From Human-Centric to Agent-Native*](https://gokite.ai/kite-whitepaper)).
 
 ---
 
-## What We Built
+## Solution
 
-Aligned with Kite’s **SPACE** direction (stablecoin-native, programmable constraints, agent-first auth, compliance-ready audit, economically viable micropayments):
+AgentPayGuard is one concrete implementation on Kite. We focus on three questions: *who* is spending (identity), *whether* we can stop it when needed (policy + freeze), and *how* we explain it afterward (audit trail). The loop is: natural-language payment requests → AI intent parsing and risk assessment → **programmable rules** and on-chain freeze checks → stablecoin transfer on Kite. Rules are enforced before execution; a 2/3 multisig provides a human override for freeze/unfreeze. The pipeline is model-agnostic—optional local or edge-deployed LLMs can later deliver sub-second, privacy-preserving decisions without changing the policy layer.
+
+### Core Features
+
+Aligned with Kite's **SPACE** direction (stablecoin-native, programmable constraints, agent-first auth, compliance-ready audit, economically viable micropayments):
 
 - **Natural-language payment:** The Agent accepts instructions like *"Pay 50 USDC to 0x... for server hosting"*, extracts recipient, amount, currency, and purpose, then runs policy and risk checks before any chain call.
 - **Programmable constraints:** Allowlist, per-transfer and daily limits, on-chain freeze (multisig-controlled), and AI risk score/level—all enforced before execution, not by trust.
@@ -28,20 +36,98 @@ Aligned with Kite’s **SPACE** direction (stablecoin-native, programmable const
 
 ---
 
+## Technology Stack
+
+### Why These Technologies
+
+1. **Kite AA SDK (Account Abstraction)**
+   - **Why**: Enables Agent-first authentication with hierarchical identity delegation, solving credential management complexity
+   - **What**: Uses `gokite-aa-sdk` to create smart contract accounts for agents, enabling programmable constraints at the protocol level
+   - **Benefit**: Agents can act as first-class economic actors without manual key management
+
+2. **AI Intent Parsing + Risk Assessment**
+   - **Why**: Natural language understanding enables human-friendly interaction while AI risk assessment provides intelligent threat detection
+   - **What**: Multi-provider LLM support (OpenAI, DeepSeek, Gemini, Claude, Ollama) for intent parsing and risk scoring
+   - **Benefit**: Detects prompt injection, suspicious patterns, and contextual anomalies that rule-based systems miss
+
+3. **Multi-layer Policy Engine**
+   - **Why**: Defense in depth—combines rule-based checks (allowlist, limits) with AI risk assessment and on-chain freeze status
+   - **What**: Traditional rules (allowlist, max amount, daily limit) + AI risk score (0-100) + on-chain freeze check (multisig-controlled)
+   - **Benefit**: Mathematical enforcement before execution, not trust-based—rules are checked before any chain call
+
+4. **On-chain Freeze Mechanism**
+   - **Why**: Provides emergency stop capability when AI detects threats or multisig members identify suspicious activity
+   - **What**: SimpleFreeze contract controlled by 2/3 multisig (SimpleMultiSig)
+   - **Benefit**: Human override for freeze/unfreeze, enabling rapid response to security incidents
+
+5. **Model-agnostic Pipeline**
+   - **Why**: Future-proof design allows swapping cloud LLMs for local/edge models without changing policy layer
+   - **What**: Clean separation between AI inference layer and policy enforcement layer
+   - **Benefit**: Can migrate to sub-second, privacy-preserving local models later while maintaining same security guarantees
+
+### Technical Architecture
+
+```
+User (Authorization/Policy Configuration)
+  └─ Agent (Kite Identity: Agent/Passport)
+       └─ AI Intent Parser (Natural Language Parsing + Risk Assessment)
+            └─ AA Smart Account (Kite AA SDK)
+                 └─ Policy Guard (Allowlist/Limits/Validity + AI Risk Assessment...)
+                      └─ Stablecoin Payment (On-chain Transfer)
+                           └─ Audit Trail (On-chain Verifiable + Optional Local Logs)
+
+Anomaly/High Risk → SimpleMultiSig (2/3 Multisig) Intervention: Freeze/Unfreeze/Policy Update
+```
+
+---
+
 ## Track Alignment
 
 | Requirement | How we meet it | Evidence |
 |-------------|----------------|----------|
 | **Chain payment** | Stablecoin transfer on Kite testnet (EOA + AA) | EOA: [Kite Tx](https://testnet.kitescan.ai/tx/0x8ec4f4a44fb7ef878db9fc549ff81294982224648f3cc21ecad04764dcbd75db) · AA: [Kite Tx](https://testnet.kitescan.ai/tx/0x3a58b19983db34e34eb95d9514bf860b3f03e15837c91844729013395b261313) |
-| **Agent identity** | KitePass (Agent Passport) + Kite AA SDK | KitePass API Key（可选）或 AA SDK 账户抽象（无需 API Key）；支付请求与 Agent 身份绑定 |
+| **Agent identity** | KitePass (Agent Passport) + Kite AA SDK | KitePass API Key (optional) or AA SDK Account Abstraction (no API key required); payment requests bound to Agent identity |
 | **Permission control** | Allowlist, limits, on-chain freeze check before every payment | Multisig: `0xA247e042cAE22F0CDab2a197d4c194AfC26CeECA` · Freeze Tx: [Kite Tx](https://testnet.kitescan.ai/tx/0xab40fc72ea1fa30a6455b48372a02d25e67952ab7c69358266f4d83413bfa46c) |
 | **Reproducibility** | One-command run; README and scripts for clone → run | Part II below; `pnpm demo:pay` / `pnpm demo:ai-agent "..."` |
 
 ---
 
-## AI Latency & Future
+## Future Improvements
 
-**Why it's slow (cold path):** The main delay in “AI pay” is the remote LLM call (one combined call when possible; fallback to two sequential calls). First request is typically ~1–4 s with the single-call path; repeated or same-intent requests are served from cache in &lt;0.01 s. We now use **one** combined AI call (parse intent + assess risk in a single prompt) when possible; if that fails we fall back to two sequential calls. Request- and intent-level caching; server reuses `getTokenDecimals` and `readSpentToday` (no duplicate RPC/file read per request).
+### Short-term (P0)
+
+1. **Performance Optimization**
+   - **Current**: Remote LLM calls take ~1–4s (cold path); cached requests <0.01s
+   - **Improvement**: Local or edge-deployed models (Ollama, LM Studio) for sub-second latency
+   - **Why**: Reduces latency from seconds to milliseconds, enables real-time payment decisions
+
+2. **ML-based Risk Detection**
+   - **Current**: LLM-only risk assessment, no structured feature engineering
+   - **Improvement**: Add XGBoost model for structured risk prediction (52-dimensional features: time windows, transaction intervals, amount sequences, address patterns)
+   - **Why**: Combines LLM's contextual understanding with ML's pattern recognition for higher accuracy
+
+3. **Anomaly Detection**
+   - **Current**: Rule-based checks only
+   - **Improvement**: Isolation Forest for unsupervised anomaly detection (cold start without labeled data)
+   - **Why**: Detects novel attack patterns that rules and supervised models miss
+
+### Long-term (P1/P2)
+
+1. **Verifiable Inference**
+   - **Vision**: Cryptographic proof of model outputs and decision lineage (aligned with Kite whitepaper §7)
+   - **Why**: Enables trustless verification of AI decisions without revealing model internals
+
+2. **Portable Reputation Networks**
+   - **Vision**: On-chain reputation, cross-platform portability, automated trust decisions
+   - **Why**: Builds trust across different agent platforms and services
+
+3. **ZK-verified Agent Credentials**
+   - **Vision**: Prove agent attributes without revealing data
+   - **Why**: Privacy-preserving identity verification for compliance and trust
+
+### Current Performance
+
+**AI Latency:** The main delay in "AI pay" is the remote LLM call (one combined call when possible; fallback to two sequential calls). First request is typically ~1–4 s with the single-call path; repeated or same-intent requests are served from cache in <0.01 s. We now use **one** combined AI call (parse intent + assess risk in a single prompt) when possible; if that fails we fall back to two sequential calls. Request- and intent-level caching; server reuses `getTokenDecimals` and `readSpentToday` (no duplicate RPC/file read per request).
 
 **Future:** Local or edge-deployed models would cut latency and could merge intent + risk into one prompt for a true single-call path. The pipeline (intent → risk → policy → chain) is already model-agnostic; swapping the cloud API for a local LLM would be a drop-in replacement for the inference layer.
 
@@ -58,11 +144,21 @@ So other Dapps can reuse our policy and risk layer without reimplementing it; th
 
 ---
 
-## Use Cases & Future Work (aligned with Kite whitepaper)
+## Use Cases
 
-**Use cases (§6).** The whitepaper describes scenarios where agent autonomy meets programmable payments: **gaming** (true microtransactions, parental limits), **IoT** (M2M bandwidth, pay-per-packet), **creator economy** (fan-to-creator tips, programmable splits), **API economy** (every call becomes a transaction, per-request billing), **e-commerce** (programmable escrow, conditional release), **personal finance** (autonomous budgets, bills, small investments under limits), **knowledge markets** (decentralized expertise, micropayments per contribution), **supply chain** (autonomous commercial networks, escrow on milestones), **DAOs** (AI-enhanced treasury, rebalancing within policy, human vote for large moves). AgentPayGuard implements the **payment + policy + freeze** layer these use cases rest on: allowlist, limits, on-chain freeze, and optional AI risk. Any of the above—a game agent, an API billing service, a personal-finance bot—can call our APIs and get enforced rules and auditability on Kite.
+The Kite whitepaper (§6) describes scenarios where agent autonomy meets programmable payments. AgentPayGuard implements the **payment + policy + freeze** layer these use cases rest on:
 
-**Future work (§7).** The whitepaper outlines: **ZK-verified agent credentials** (prove attributes without revealing data), **verifiable inference and computation** (cryptographic proof of model outputs and decision lineage), **portable reputation networks** (on-chain reputation, cross-platform portability, automated trust decisions), **verifiable service discovery** (capability and compliance attestations), **comprehensive traceability and attestation** (every action paired with attestations, regulatory compliance, automated recourse). Our own roadmap—local or edge-deployed LLMs for sub-second, privacy-preserving intent/risk—fits this direction: we keep the same policy and audit layer and can later plug in attested or local models; verifiable inference (when available) would slot into the same pipeline.
+- **Gaming**: True microtransactions with parental limits
+- **IoT**: M2M bandwidth, pay-per-packet
+- **Creator Economy**: Fan-to-creator tips, programmable splits
+- **API Economy**: Every call becomes a transaction, per-request billing
+- **E-commerce**: Programmable escrow, conditional release
+- **Personal Finance**: Autonomous budgets, bills, small investments under limits
+- **Knowledge Markets**: Decentralized expertise, micropayments per contribution
+- **Supply Chain**: Autonomous commercial networks, escrow on milestones
+- **DAOs**: AI-enhanced treasury, rebalancing within policy, human vote for large moves
+
+Any of the above—a game agent, an API billing service, a personal-finance bot—can call our APIs (`/api/pay`, `/api/ai-pay`) and get enforced rules and auditability on Kite.
 
 Details: [Kite Whitepaper](https://gokite.ai/kite-whitepaper); full text in `docs/resources/kite_whitepaper.md` (§6 Use Cases, §7 Future Work).
 
@@ -81,12 +177,12 @@ Details: [Kite Whitepaper](https://gokite.ai/kite-whitepaper); full text in `doc
 
 ## FAQ: After Freeze, How Are Funds Recovered?
 
-In AgentPayGuard, “freeze” means **the Agent is not allowed to send funds to that address**. It does **not** lock or confiscate assets already held by that address. So:
+In AgentPayGuard, "freeze" means **the Agent is not allowed to send funds to that address**. It does **not** lock or confiscate assets already held by that address. So:
 
-- Funds **already in** the frozen address remain under the control of that address’s owner (private key). The owner can move them as usual.
+- Funds **already in** the frozen address remain under the control of that address's owner (private key). The owner can move them as usual.
 - To allow the Agent to **pay that address again**, multisig members execute **unfreeze**; after that, payments to that address are permitted again by policy.
 
-If in a future design funds were held in a **vault contract** controlled by multisig, withdrawal would be a separate multisig-executed transaction (e.g. “withdraw from vault to address X”); the current SimpleFreeze only gates “Agent → recipient,” not vault withdrawals.
+If in a future design funds were held in a **vault contract** controlled by multisig, withdrawal would be a separate multisig-executed transaction (e.g. "withdraw from vault to address X"); the current SimpleFreeze only gates "Agent → recipient," not vault withdrawals.
 
 ---
 
