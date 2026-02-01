@@ -50,6 +50,10 @@ interface AIPayPipelineResult {
 }
 
 async function runAIPayPipeline(request: string, executeOnchain: boolean, paymentMode?: 'eoa' | 'aa'): Promise<AIPayPipelineResult> {
+  const pipelineStartTime = Date.now();
+  const { getMetrics } = await import('./lib/metrics.js');
+  const metrics = getMetrics();
+  
   if (!cachedAIParser.isEnabled()) {
     return { ok: false, error: 'ai_disabled', message: 'AI features disabled. Set ENABLE_AI_INTENT=1 and configure API key.' };
   }
@@ -83,9 +87,18 @@ async function runAIPayPipeline(request: string, executeOnchain: boolean, paymen
   const spentTodayHuman = Number(ethers.formatUnits(spentTodayForContext, tokenDecimalsForContext));
   const context = { historicalPayments: [] as never[], walletBalance: walletBalanceHuman, spentToday: spentTodayHuman };
 
+  const aiStartTime = Date.now();
   const { intent, risk: aiAssessment } = await cachedAIParser.parseAndAssessRisk(request, context);
+  const aiDuration = Date.now() - aiStartTime;
+  
+  // Record AI call metrics
+  const providerInfo = cachedAIParser.getProviderInfo();
+  metrics.recordAICall(providerInfo.provider, true, aiDuration, false);
+  metrics.recordRiskAssessment(aiAssessment.score);
 
   if (!intent.parsedSuccessfully) {
+    const duration = Date.now() - pipelineStartTime;
+    metrics.recordPayment(false, duration, 'parse_failed');
     return { ok: false, error: 'parse_failed', message: 'Failed to parse payment intent', intent: intent as unknown as Record<string, unknown> };
   }
 
@@ -150,21 +163,33 @@ async function runAIPayPipeline(request: string, executeOnchain: boolean, paymen
     context: { historicalPayments: [], walletBalance: context.walletBalance },
   });
   decision.aiAssessment = aiAssessment;
+  
+  // Record policy decision
+  const rejectionCode = decision.baseDecision.ok ? undefined : decision.baseDecision.code;
+  metrics.recordPolicyDecision(decision.baseDecision.ok, rejectionCode);
 
   if (!decision.baseDecision.ok) {
+    const duration = Date.now() - pipelineStartTime;
+    metrics.recordPayment(false, duration, decision.baseDecision.code || 'policy_rejected');
     return { ok: false, intent: intent as unknown as Record<string, unknown>, risk: aiAssessment as unknown as Record<string, unknown>, policy: decision.baseDecision as unknown as Record<string, unknown> };
   }
 
   if (executeOnchain) {
     const finalPaymentMode = paymentMode ?? env.PAYMENT_MODE;
     const payResult = await runPay({ recipient: finalRecipient, amount: intent.amount.split(' ')[0], paymentMode: finalPaymentMode as 'eoa' | 'aa', executeOnchain: true });
+    const duration = Date.now() - pipelineStartTime;
+    
     if (payResult.ok) {
       await addSpentToday(env.STATE_PATH, amountInTokenUnits);
+      metrics.recordPayment(true, duration);
       return { ok: true, intent: intent as unknown as Record<string, unknown>, risk: aiAssessment as unknown as Record<string, unknown>, policy: decision.baseDecision as unknown as Record<string, unknown>, txHash: payResult.txHash, userOpHash: payResult.userOpHash };
     }
+    metrics.recordPayment(false, duration, payResult.code || 'payment_failed');
     return { ok: false, intent: intent as unknown as Record<string, unknown>, risk: aiAssessment as unknown as Record<string, unknown>, policy: payResult as unknown as Record<string, unknown> };
   }
 
+  const duration = Date.now() - pipelineStartTime;
+  metrics.recordPayment(true, duration); // Dry run success
   return { ok: true, intent: intent as unknown as Record<string, unknown>, risk: aiAssessment as unknown as Record<string, unknown>, policy: decision.baseDecision as unknown as Record<string, unknown> };
 }
 
@@ -197,7 +222,13 @@ function setCors(res: http.ServerResponse) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
+// Import metrics collector
+const { getMetrics } = await import('./lib/metrics.js');
+const metrics = getMetrics();
+
 const server = http.createServer(async (req, res) => {
+  const requestStartTime = Date.now();
+  
   setCors(res);
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -207,6 +238,15 @@ const server = http.createServer(async (req, res) => {
 
   const url = new URL(req.url ?? '/', `http://localhost`);
   const path = url.pathname;
+  
+  // Record API request metrics
+  const originalEnd = res.end.bind(res);
+  res.end = function(...args: any[]) {
+    const duration = Date.now() - requestStartTime;
+    const success = res.statusCode >= 200 && res.statusCode < 400;
+    metrics.recordAPIRequest(success, duration);
+    return originalEnd(...args);
+  };
 
   if (path === '/api/agent-wallet' && req.method === 'GET') {
     try {
@@ -224,6 +264,17 @@ const server = http.createServer(async (req, res) => {
       send(res, 200, { ok: true, address });
     } catch (err) {
       send(res, 500, { error: err instanceof Error ? err.message : 'Failed to get agent wallet' });
+    }
+    return;
+  }
+
+  // Performance metrics endpoint
+  if (path === '/api/metrics' && req.method === 'GET') {
+    try {
+      const metricsData = metrics.getMetrics();
+      send(res, 200, metricsData);
+    } catch (err) {
+      send(res, 500, { error: err instanceof Error ? err.message : 'Failed to get metrics' });
     }
     return;
   }

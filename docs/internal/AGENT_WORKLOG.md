@@ -20,6 +20,32 @@
 
 ---
 
+### Phase 39：README 文档一致性修正（2026-02-01）
+
+**背景**：检查并修正 README.md 与实际项目内容的不一致之处。
+
+**工作内容**：
+1. **特征维度数修正**：
+   - 发现 README.md 中多处描述为 "52-dimensional feature engineering"
+   - 实际代码实现中 `featureVectorToArray` 方法返回 **59 维特征**
+   - 修正了 5 处描述：Core Modules 表格、AI-Enhanced Policy、Machine Learning Features、Advanced Features、Future Improvements
+   - 同步更新了 README_zh.md 中对应的 4 处描述
+
+2. **其他验证**：
+   - 验证 API 端点列表与实际代码一致
+   - 验证 AI 模型名称与实际代码一致
+   - 验证前端页面描述与实际文件一致
+
+**修正内容**：
+- README.md：5 处 "52-dimensional" → "59-dimensional"
+- README_zh.md：4 处 "52维" → "59维"
+
+**验证**：所有文档现在准确反映实际的 59 维特征工程实现。
+
+**分支**：`feature/ai-risk-control-algorithm-analysis`
+
+---
+
 ### Phase 21 至当前：总结（2026-01-31）
 
 **时间范围**：Phase 21（免费 AI API 支持）→ Phase 32（AI 支付速度优化）→ 近期（README ASH 说明 + 前端优化、低余额测试与风控可配置）。

@@ -112,10 +112,13 @@ export class AIChatOrchestrator {
 
       // Optimize parameters: lower temperature, limit max_tokens, set timeout / 优化参数：降低 temperature，限制 max_tokens，设置超时
       const temperature = this.env.AI_TEMPERATURE ?? 0.1; // Default 0.1 (faster and more deterministic) / 默认 0.1（更快更确定）
-      const maxTokens = this.env.AI_MAX_TOKENS; // Optional limit on output length / 可选限制输出长度
+      // Dynamic max_tokens: conversation needs more tokens, payment/queries need less / 动态 max_tokens：对话需要更多 tokens，支付/查询需要更少
+      // Default: 2000 for conversation (detailed responses), 500 for others (brief responses) / 默认：对话 2000（详细响应），其他 500（简短响应）
+      const defaultMaxTokens = 2000; // Increased default for conversation responses / 增加默认值以支持对话响应
+      const maxTokens = this.env.AI_MAX_TOKENS ?? defaultMaxTokens;
       const timeout = this.env.AI_TIMEOUT_MS ?? 30000; // Default 30s timeout / 默认 30 秒超时
 
-      console.log(`[AIChatOrchestrator] Calling AI API: model=${this.model}, temperature=${temperature}, maxTokens=${maxTokens ?? 'unlimited'}, timeout=${timeout}ms`);
+      console.log(`[AIChatOrchestrator] Calling AI API: model=${this.model}, temperature=${temperature}, maxTokens=${maxTokens}, timeout=${timeout}ms`);
 
       const completion = await withRetry(
         async () => {
@@ -157,7 +160,19 @@ export class AIChatOrchestrator {
         parsed = JSON.parse(content);
       } catch (parseError) {
         console.error('[AIChatOrchestrator] JSON parse failed:', parseError);
-        console.error('[AIChatOrchestrator] Response content:', content.substring(0, 200));
+        console.error('[AIChatOrchestrator] Response content:', content.substring(0, 500));
+        
+        // Check if JSON is truncated (common when max_tokens is too small) / 检查 JSON 是否被截断（max_tokens 太小时常见）
+        const isTruncated = content.length > 0 && (
+          parseError instanceof SyntaxError && 
+          (parseError.message.includes('Unterminated') || parseError.message.includes('Unexpected end'))
+        );
+        
+        if (isTruncated && maxTokens < 4000) {
+          console.warn(`[AIChatOrchestrator] JSON appears truncated. Response length: ${content.length}, maxTokens: ${maxTokens}`);
+          console.warn('[AIChatOrchestrator] Consider increasing AI_MAX_TOKENS (e.g., 2000-4000) for conversation responses');
+        }
+        
         throw new Error(`Invalid JSON response: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
       }
 
